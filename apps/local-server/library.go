@@ -134,10 +134,6 @@ func realpath(path string) (string, error) {
 	return resolved, nil
 }
 
-func moved(err error) bool {
-	return err != nil
-}
-
 func (library *projectLibrary) list() (*libraryListing, error) {
 	value, err := library.load()
 	if err != nil {
@@ -220,7 +216,7 @@ func (library *projectLibrary) list() (*libraryListing, error) {
 // inspectEntry fills modified/name or returns the failure the scanner records.
 func (library *projectLibrary) inspectEntry(dirPath string, path string, entry *libraryProject) error {
 	resolvedDir, err := realpath(dirPath)
-	if moved(err) || pathKey(resolvedDir) != pathKey(dirPath) {
+	if err != nil || pathKey(resolvedDir) != pathKey(dirPath) {
 		return errors.New("Project directory moved")
 	}
 	pending := filepath.Join(dirPath, ".pending-create")
@@ -257,7 +253,7 @@ func (library *projectLibrary) inspectEntry(dirPath string, path string, entry *
 	}
 	entry.Modified = info.ModTime().UnixMilli()
 	resolvedDir, err = realpath(dirPath)
-	if moved(err) || pathKey(resolvedDir) != pathKey(dirPath) {
+	if err != nil || pathKey(resolvedDir) != pathKey(dirPath) {
 		return errors.New("Project directory moved")
 	}
 	bytes, err := readLimited(path, maxProjectBytes)

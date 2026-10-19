@@ -95,14 +95,6 @@ func (authorizations *projectAuthorizations) remember(file string) error {
 	return nil
 }
 
-func sortStrings(values []string) {
-	for left := 1; left < len(values); left++ {
-		for right := left; right > 0 && values[right] < values[right-1]; right-- {
-			values[right], values[right-1] = values[right-1], values[right]
-		}
-	}
-}
-
 // A native destination decision survives a lost response: record it after
 // overwrite protection, before replacing the file, so retries never choose a
 // new destination. Port of apps/desktop/src/project-creations.ts.

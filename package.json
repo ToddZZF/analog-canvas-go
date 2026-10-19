@@ -22,6 +22,9 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present build",
+    "build:local": "pnpm --filter @icm/editor^... --if-present build && pnpm --filter @icm/editor exec vite build --config vite.local-web.config.ts && node scripts/build-local-server.mjs",
+    "build:local:notray": "pnpm --filter @icm/editor^... --if-present build && pnpm --filter @icm/editor exec vite build --config vite.local-web.config.ts && node scripts/build-local-server.mjs --notray",
+    "build:local:release": "pnpm --filter @icm/editor^... --if-present build && pnpm --filter @icm/editor exec vite build --config vite.local-web.config.ts && node scripts/build-local-server.mjs --release",
     "release:package": "pnpm build && node scripts/package-mcp.mjs && node scripts/package-release.mjs",
     "performance:check": "pnpm build && node scripts/performance-baseline.mjs",
     "export:golden": "pnpm build && node scripts/export-golden.mjs",

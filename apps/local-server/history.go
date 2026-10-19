@@ -82,7 +82,9 @@ func validVersions(value []historyVersion) bool {
 		return false
 	}
 	for _, version := range value {
-		if !isUUID(version.ID) || version.SavedAt == 0 {
+		// JSON cannot carry NaN or infinity, so any decoded number is
+		// finite, matching the protocol's Number.isFinite check.
+		if !isUUID(version.ID) {
 			return false
 		}
 	}
@@ -135,10 +137,10 @@ func (history *projectHistory) load(recoverCreation bool) (*historyManifest, err
 				return nil, err
 			}
 			manifest = historyManifest{Version: 1, Versions: pending.Versions}
-		case bytesEqual(currentBytes, after):
+		case sameBytes(currentBytes, after):
 			manifest = historyManifest{Version: 1, Versions: pending.Versions}
 		case currentBytes == nil && pending.Before == nil,
-			currentBytes != nil && pending.Before != nil && bytesEqual(currentBytes, before):
+			sameBytes(currentBytes, before):
 			manifest = historyManifest{Version: 1, Versions: manifest.Versions}
 		default:
 			return nil, errors.New("An interrupted save conflicts with the current file. History is retained; save a separate copy.")
@@ -173,7 +175,7 @@ func (history *projectHistory) prepare(before []byte, after []byte, independent 
 	if err != nil {
 		return err
 	}
-	if before != nil && bytesEqual(before, after) {
+	if before != nil && sameBytes(before, after) {
 		return nil
 	}
 	if err := os.MkdirAll(history.directory, 0o755); err != nil {

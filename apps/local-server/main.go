@@ -18,14 +18,23 @@ import (
 	"time"
 )
 
-// Overridden at release build time with -ldflags -X.
+// Overridden at release build time with -ldflags -X. dirty is a string
+// because -X stamps strings only; it compares against "true".
 var (
 	version = "dev"
 	commit  = ""
-	dirty   = true
+	dirty   = "false"
 )
 
 const defaultPort = "4173"
+
+type serverOptions struct {
+	addr        string
+	dataDir     string
+	projectsDir string
+	noTray      bool
+	noOpen      bool
+}
 
 type trayConfiguration struct {
 	url      string
@@ -36,13 +45,7 @@ type trayConfiguration struct {
 }
 
 func main() {
-	options := struct {
-		addr        string
-		dataDir     string
-		projectsDir string
-		noTray      bool
-		noOpen      bool
-	}{}
+	options := serverOptions{}
 	flag.StringVar(&options.addr, "addr", "127.0.0.1:"+defaultPort, "listen address; an occupied default port falls back to a free one")
 	flag.StringVar(&options.dataDir, "data-dir", "", "data directory (default ~/Analog Canvas)")
 	flag.StringVar(&options.projectsDir, "projects-dir", "", "project library root (default <data-dir>/Projects)")
@@ -63,13 +66,7 @@ func defaultDataDir() string {
 	return filepath.Join(home, "Analog Canvas")
 }
 
-func run(options struct {
-	addr        string
-	dataDir     string
-	projectsDir string
-	noTray      bool
-	noOpen      bool
-}) error {
+func run(options serverOptions) error {
 	dataDir := options.dataDir
 	if dataDir == "" {
 		dataDir = defaultDataDir()
@@ -81,7 +78,10 @@ func run(options struct {
 	if err != nil {
 		return err
 	}
-	stateDirectory := filepath.Join(resolvedDataDir, "state")
+	// State files sit directly under the data dir, matching the desktop
+	// preview's userData layout so an existing installation migrates by
+	// pointing --data-dir at it.
+	stateDirectory := resolvedDataDir
 	projectsRoot := options.projectsDir
 	if projectsRoot == "" {
 		projectsRoot = filepath.Join(resolvedDataDir, "Projects")
@@ -100,18 +100,19 @@ func run(options struct {
 	if err != nil {
 		return fmt.Errorf("the embedded editor bundle is missing or damaged; build it with `pnpm build:local`: %w", err)
 	}
+	uncommitted := dirty == "true"
 	server := &localServer{
 		static:     staticHandler,
 		files:      newFileHandler(library, stateDirectory, origins),
 		components: newComponentHandler(filepath.Join(resolvedDataDir, "components.json"), origins),
-		system:     newSystemHandler(library, resolvedDataDir, version, commit, dirty, origins),
+		system:     newSystemHandler(library, resolvedDataDir, version, commit, uncommitted, origins),
 		external:   newExternalHandler(commit, origins),
 	}
 	httpServer := &http.Server{Handler: server}
 
 	url := "http://" + addr
 	fmt.Printf("Analog Canvas %s (commit %s", version, commitShort())
-	if dirty {
+	if uncommitted {
 		fmt.Printf(", uncommitted development build")
 	}
 	fmt.Printf(")\nEditor:   %s\nProjects: %s\nData:     %s\n", url, projectsRoot, resolvedDataDir)

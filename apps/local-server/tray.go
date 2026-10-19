@@ -41,8 +41,10 @@ func traySupported() bool {
 }
 
 // runTrayBlocking owns the main goroutine until the user quits; macOS
-// requires the tray loop to run there. It reports false when the tray
-// cannot start, leaving the console wait in charge.
+// requires the tray loop to run there. Whether a session can host the icon
+// is decided by traySupported() before this runs; systray.Run itself gives
+// no failure signal, so an icon that never appears leaves the server
+// running until Quit or a signal.
 func runTrayBlocking(config trayConfiguration, interrupt <-chan struct{}) bool {
 	finished := make(chan struct{})
 	started := make(chan struct{})

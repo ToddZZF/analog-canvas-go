@@ -120,7 +120,9 @@ func isEnoent(err error) bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-func bytesEqual(a []byte, b []byte) bool {
+// sameBytes mirrors the TS same(): nil means "file absent", and an absent
+// file only equals another absent file.
+func sameBytes(a []byte, b []byte) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}

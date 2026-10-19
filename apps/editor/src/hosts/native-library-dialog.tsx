@@ -14,6 +14,27 @@ import { nativePathLabel } from "./native-path-label";
 import { useEditorServices } from "../services/editor-services";
 import { projectFileBaseName } from "../document/project-file-service";
 
+const destructiveMessages: Record<string, (name: string) => string> = {
+  delete: (name) => `Move ${name} to the recycle area?`,
+  purge: (name) =>
+    `Permanently delete ${name} and its history? This cannot be undone.`,
+  "restore-version": (name) =>
+    `Restore the selected version of ${name}? The current saved version will remain in history.`,
+};
+
+// The desktop shell confirms destructive library actions in its main
+// process; a browser page has no native dialog and confirms itself.
+function confirmDestructive(action: string, name: string): boolean {
+  const message = destructiveMessages[action];
+  if (!message) return true;
+  if (
+    "__analogCanvasDesktop" in
+    (window as unknown as Record<string, unknown>)
+  )
+    return true;
+  return window.confirm(message(name));
+}
+
 export function NativeLibraryDialog({
   onClose,
   onOpen,
@@ -65,6 +86,7 @@ export function NativeLibraryDialog({
     extra = {},
   ) {
     await run(async () => {
+      if (!confirmDestructive(action, entry.name)) return;
       await libraryCommand("library-action", {
         id: entry.id,
         action,

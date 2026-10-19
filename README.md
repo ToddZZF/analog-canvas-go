@@ -138,7 +138,19 @@ The rest is the editor, desktop host, corresponding source, licenses and
 acceptance records. It contains no developer
 `node_modules` or user projects. Keep the bundled runtime and resources together.
 
-## Run locally
+## Run locally as one Go binary
+
+This checkout also builds into a local, single-binary distribution: a Go
+server (system tray included) that serves the editor and stores every
+project as `.icproj.json` files on disk, with no account, cloud, gallery or
+hosted simulation. See [apps/local-server/README.md](apps/local-server/README.md).
+
+```powershell
+pnpm build:local
+./apps/local-server/dist/analog-canvas-local
+```
+
+## Run the web dev server
 
 Requires Node.js 24 or newer and pnpm 11.16.0 or newer.
 

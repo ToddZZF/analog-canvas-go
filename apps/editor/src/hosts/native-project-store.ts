@@ -41,7 +41,7 @@ export interface NativeProjectStore {
     creationKey?: string,
   ): Promise<NativeSaveOutcome>;
 }
-function binding(value: unknown): value is NativeFileBinding {
+export function binding(value: unknown): value is NativeFileBinding {
   const file = value as Partial<NativeFileBinding> | null;
   return (
     !!file &&

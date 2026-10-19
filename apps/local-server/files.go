@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -57,7 +58,7 @@ func (err *requestError) Error() string  { return err.message }
 func (err *conflictError) Error() string { return err.message }
 
 func newFileHandler(library *projectLibrary, stateDirectory string, origins []string) *fileHandler {
-	indexPath := filepath.Join(stateDirectory, "desktop-index.json")
+	indexPath := filepath.Join(stateDirectory, "recent-projects.json")
 	allowed := map[string]bool{}
 	for _, origin := range origins {
 		allowed[origin] = true
@@ -105,13 +106,6 @@ func existingBytes(path string) ([]byte, error) {
 	return bytes, err
 }
 
-func sameBytes(expected []byte, current []byte) bool {
-	if expected == nil {
-		return current == nil
-	}
-	return current != nil && bytes.Equal(expected, current)
-}
-
 func createdBaseline(path string, data []byte) ([]byte, error) {
 	existing, err := existingBytes(path)
 	if err != nil {
@@ -129,6 +123,13 @@ func commitProjectFile(path string, expected []byte, data []byte, library *proje
 	conflict := func() error {
 		return &conflictError{message: "File changed outside the editor. No file was overwritten; save a separate copy."}
 	}
+	// A failed first commit of a fresh allocation leaves its directory
+	// retriable instead of half-written; retained receipts keep ownership.
+	discardAllocation := func() {
+		if expected == nil && library != nil {
+			library.discardFailedAllocation(path)
+		}
+	}
 	existing, err := existingBytes(path)
 	if err != nil {
 		return "", err
@@ -144,51 +145,27 @@ func commitProjectFile(path string, expected []byte, data []byte, library *proje
 		}
 		history = newProjectHistory(directory, path)
 		if err := history.prepare(expected, data, independent); err != nil {
-			if expected == nil {
-				library.discardFailedAllocation(path)
-			}
+			discardAllocation()
 			return "", err
 		}
 	}
 	temporary := filepath.Join(filepath.Dir(path), ".analog-canvas-save-"+newUUID()+".tmp")
 	defer os.Remove(temporary)
-	if err := func() error {
-		file, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err != nil {
-			return err
-		}
-		if _, err := file.Write(data); err != nil {
-			file.Close()
-			return err
-		}
-		if err := file.Sync(); err != nil {
-			file.Close()
-			return err
-		}
-		return file.Close()
-	}(); err != nil {
-		if expected == nil && library != nil {
-			library.discardFailedAllocation(path)
-		}
+	if err := writeFileSynced(temporary, data); err != nil {
+		discardAllocation()
 		return "", err
 	}
 	existing, err = existingBytes(path)
 	if err != nil {
-		if expected == nil && library != nil {
-			library.discardFailedAllocation(path)
-		}
+		discardAllocation()
 		return "", err
 	}
 	if !sameBytes(expected, existing) {
-		if expected == nil && library != nil {
-			library.discardFailedAllocation(path)
-		}
+		discardAllocation()
 		return "", conflict()
 	}
 	if err := os.Rename(temporary, path); err != nil {
-		if expected == nil && library != nil {
-			library.discardFailedAllocation(path)
-		}
+		discardAllocation()
 		return "", err
 	}
 	if history != nil {
@@ -197,6 +174,23 @@ func commitProjectFile(path string, expected []byte, data []byte, library *proje
 		}
 	}
 	return "", nil
+}
+
+// writeFileSynced creates the file exclusively, writes and fsyncs it.
+func writeFileSynced(path string, data []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 func (handler *fileHandler) loadRecentOnce() {
@@ -432,7 +426,7 @@ func (handler *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "save":
 		outcome = handler.save(r)
 	default:
-		outcome = map[string]any{"message": "Not found"}
+		outcome = map[string]any{"_status": http.StatusNotFound, "message": "Not found"}
 	}
 	status := http.StatusOK
 	if explicit, ok := outcome["_status"].(int); ok {
@@ -586,7 +580,7 @@ func (handler *fileHandler) libraryAction(r *http.Request) fileOutcome {
 			return failureOutcome(err)
 		}
 	}
-	if contains([]string{"rename", "delete", "purge", "restore", "restore-version"}, body.Action) {
+	if slices.Contains([]string{"rename", "delete", "purge", "restore", "restore-version"}, body.Action) {
 		for _, file := range handler.grants {
 			if pathKey(file.path) == pathKey(entry.Path) {
 				return map[string]any{"status": "conflict", "message": "Close this Project's tab before changing its saved copy. Save or discard edits using the tab's close prompt."}
@@ -715,15 +709,6 @@ func (handler *fileHandler) libraryAction(r *http.Request) fileOutcome {
 	return map[string]any{"status": "done"}
 }
 
-func contains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
 func (handler *fileHandler) history(r *http.Request) fileOutcome {
 	var body struct {
 		ID string `json:"id"`
@@ -756,7 +741,7 @@ func (handler *fileHandler) history(r *http.Request) fileOutcome {
 func (handler *fileHandler) libraryListing(r *http.Request) fileOutcome {
 	listing, err := handler.library.list()
 	if err != nil {
-		return map[string]any{"_status": http.StatusNotFound, "message": "Project library unavailable"}
+		return failureOutcome(err)
 	}
 	recentProjects := make([]map[string]any, 0, len(handler.recent))
 	for _, entry := range handler.recent {
@@ -920,7 +905,7 @@ func (handler *fileHandler) openContent(body struct {
 }) fileOutcome {
 	data := []byte(body.Text)
 	if len(data) > maxProjectBytes {
-		return map[string]any{"message": "Project exceeds 16 MiB"}
+		return map[string]any{"_status": http.StatusRequestEntityTooLarge, "message": "Project exceeds 16 MiB"}
 	}
 	document, err := parseProjectDocument(data)
 	if err != nil {
@@ -937,12 +922,8 @@ func (handler *fileHandler) openContent(body struct {
 	if err != nil {
 		return failureOutcome(err)
 	}
-	importDocument, err := parseProjectDocument(data)
-	if err != nil {
-		return failureOutcome(err)
-	}
-	importDocument.makeIndependent(copyIdentity(creation), name)
-	serialized, err := importDocument.serialize()
+	document.makeIndependent(copyIdentity(creation), name)
+	serialized, err := document.serialize()
 	if err != nil {
 		return failureOutcome(err)
 	}

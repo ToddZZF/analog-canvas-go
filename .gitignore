@@ -50,3 +50,4 @@ apps/editor/dist-e2e/
 apps/local-server/web/*
 !apps/local-server/web/README.md
 apps/local-server/dist/
+apps/editor/dist-local/
