@@ -1,6 +1,7 @@
 import type { EditorServices } from "./editor-services";
 import { browserExportDelivery } from "../hosts/browser-export-delivery";
 import { createLocalWebProjectStore } from "../hosts/local-web-project-store";
+import { quitLocalServer } from "../hosts/local-web-server-quit";
 import { createPreviewEditorServices } from "./preview-editor-services";
 
 /**
@@ -15,5 +16,6 @@ export function createLocalWebEditorServices(): EditorServices {
     ...services,
     nativeProjectStore: createLocalWebProjectStore(),
     exportDelivery: browserExportDelivery,
+    quitServer: quitLocalServer,
   };
 }

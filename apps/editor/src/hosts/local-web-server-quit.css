@@ -1,0 +1,24 @@
+/* The full-page notice after the local server quits; the page outlives it. */
+#local-web-server-stopped {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  background: var(--icm-chrome-bg);
+  color: var(--icm-text);
+}
+#local-web-server-stopped h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+#local-web-server-stopped p {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--icm-text-muted);
+  line-height: 1.5;
+}

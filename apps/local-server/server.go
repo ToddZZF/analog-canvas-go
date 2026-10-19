@@ -14,6 +14,7 @@ type localServer struct {
 	components *componentHandler
 	system     *systemHandler
 	external   *externalHandler
+	quit       *quitHandler
 }
 
 func (server *localServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +32,8 @@ func (server *localServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		server.system.ServeHTTP(w, r)
 	case path == "/desktop/external":
 		server.external.ServeHTTP(w, r)
+	case path == "/desktop/quit":
+		server.quit.ServeHTTP(w, r)
 	case path == "/desktop/export" || strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/desktop/"):
 		server.static.applySecureHeaders(w)
 		http.Error(w, "Not Found", http.StatusNotFound)

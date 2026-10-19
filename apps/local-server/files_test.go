@@ -43,6 +43,7 @@ func newTestServer(t *testing.T) *testServer {
 		components: newComponentHandler(filepath.Join(dataDir, "components.json"), nil),
 		system:     newSystemHandler(library, dataDir, "test", strings.Repeat("a", 40), false, nil),
 		external:   newExternalHandler(strings.Repeat("a", 40), nil),
+		quit:       newQuitHandler(nil),
 	})
 	t.Cleanup(server.Close)
 	// The handlers validate the request Origin against the served origins.
@@ -73,6 +74,7 @@ func handlerOrigins(server *httptest.Server) {
 	mux.components.origins = allow(mux.components.origins)
 	mux.system.origins = allow(mux.system.origins)
 	mux.external.origins = allow(mux.external.origins)
+	mux.quit.origins = allow(mux.quit.origins)
 }
 
 func (test *testServer) post(t *testing.T, path string, body any) map[string]any {

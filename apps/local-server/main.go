@@ -107,6 +107,7 @@ func run(options serverOptions) error {
 		components: newComponentHandler(filepath.Join(resolvedDataDir, "components.json"), origins),
 		system:     newSystemHandler(library, resolvedDataDir, version, commit, uncommitted, origins),
 		external:   newExternalHandler(commit, origins),
+		quit:       newQuitHandler(origins),
 	}
 	httpServer := &http.Server{Handler: server}
 
@@ -126,6 +127,18 @@ func run(options serverOptions) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// The tray Quit, Ctrl+C and the editor's File → Quit Local Server all
+	// close this one channel; the server answers the page before Shutdown
+	// waits for its response to arrive.
+	interrupt := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-server.quit.request:
+		}
+		close(interrupt)
+	}()
+
 	serverError := make(chan error, 1)
 	go func() {
 		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -143,7 +156,7 @@ func run(options serverOptions) error {
 			title:    "Analog Canvas",
 			tooltip:  "Analog Canvas — " + url,
 			version:  version,
-		}, ctx.Done())
+		}, interrupt)
 		if !trayActive {
 			log.Printf("the system tray is unavailable; staying in console mode (Ctrl+C quits)")
 		}
@@ -154,7 +167,7 @@ func run(options serverOptions) error {
 			if err != nil {
 				return fmt.Errorf("server failed: %w", err)
 			}
-		case <-ctx.Done():
+		case <-interrupt:
 		}
 	}
 

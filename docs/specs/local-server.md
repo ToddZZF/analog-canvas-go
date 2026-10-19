@@ -44,7 +44,8 @@ authority in the apps/desktop sources named below.
   keeps file-association controls disabled.
 - The tray (`fyne.io/systray`) offers open-editor, open-projects-folder
   and quit; builds with `-tags notray` omit it and run as a pure-Go
-  console server.
+  console server. Desktops whose panel hosts no StatusNotifier watcher
+  (the icon never appears) quit through the editor's File menu instead.
 
 ## Contract
 
@@ -58,6 +59,10 @@ authority in the apps/desktop sources named below.
   entries and 16 MiB per library file.
 - `POST /desktop/system/info` and `POST /desktop/external` with the
   shapes of `apps/desktop/src/system-info.ts` and `external-links.ts`.
+- `POST /desktop/quit` (no body) answers `{status:"quitting"}` and then
+  runs the same graceful shutdown as tray Quit and Ctrl+C. It accepts
+  only the served loopback origins, and the editor confirms inside the
+  page before calling it.
 
 ## Acceptance criteria
 

@@ -27,7 +27,10 @@ browser, and puts a tray icon in the desktop panel with **Open Editor**,
 `-tags notray` (`pnpm build:local:notray`) builds a pure-Go binary with the
 tray removed: CGO-free, works headless over SSH. On Linux the tray uses the
 DBus StatusNotifier/AppIndicator protocol — KDE shows it natively, while
-GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension.
+GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension,
+and some panels ship without any StatusNotifier host at all, so the icon
+never appears. **File → Quit Local Server** in the editor quits through the
+same graceful shutdown, so the server stays manageable without a tray.
 Without a session bus the server logs and stays in console mode.
 
 ## Where data lives

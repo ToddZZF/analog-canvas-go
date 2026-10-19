@@ -52,6 +52,11 @@ export interface FileCommandMenuProps {
   /** Opens Project Info, where the circuit and its Cell are named. */
   onOpenInfo?: () => void;
   /**
+   * Quits the local server host after its own confirmation; present only
+   * where the tray icon may be missing (the Go local server bundle).
+   */
+  onQuitServer?: () => void;
+  /**
    * Drawn as the File group inside another menu (the header's File menu),
    * which refreshes the native file list when it opens, not as a menu of its
    * own.
@@ -156,6 +161,7 @@ export function FileCommandMenu({
   onRevert,
   onOpenRecovery,
   onOpenInfo,
+  onQuitServer,
   embedded = false,
 }: FileCommandMenuProps) {
   const [openSubmenu, setOpenSubmenu] = useState<"import" | "export" | null>(
@@ -333,6 +339,15 @@ export function FileCommandMenu({
       {hasRecoverySessions ? (
         <button type="button" onClick={onOpenRecovery}>
           Recover Unsaved Work…
+        </button>
+      ) : null}
+      {onQuitServer ? (
+        <button
+          type="button"
+          data-testid="quit-local-server"
+          onClick={onQuitServer}
+        >
+          Quit Local Server
         </button>
       ) : null}
     </>

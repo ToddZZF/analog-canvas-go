@@ -280,7 +280,8 @@ export function EditorMenuBar({
   leaveForGallery: () => void;
   leaveForArena: () => void;
 }) {
-  const { NativeHeaderActions, openExternalLink } = useEditorServices();
+  const { NativeHeaderActions, openExternalLink, quitServer } =
+    useEditorServices();
   return (
     <EditorAppChrome
       communityEnabled={capabilities.community}
@@ -456,6 +457,15 @@ export function EditorMenuBar({
         onRevert: revertToSavedProjectBaseline,
         onOpenRecovery: openRecoveryDialog,
         onOpenInfo: () => setProjectInfoOpen(true),
+        ...(quitServer
+          ? {
+              onQuitServer: () => {
+                void quitServer().catch((error: unknown) =>
+                  setStatus(String(error)),
+                );
+              },
+            }
+          : {}),
       }}
       searchOpen={searchOpen}
       selectionFilterOpen={selectionFilterOpen}

@@ -51,6 +51,12 @@ export interface EditorServices {
   readonly NativeProjectHome?: ComponentType<NativeProjectHomeProps>;
   readonly NativeHeaderActions?: ComponentType;
   readonly openExternalLink?: (target: NativeExternalTarget) => Promise<void>;
+  /**
+   * Quits the host server after in-page confirmation; only the local-web
+   * host sets it, where a panel may not host the tray icon. The desktop
+   * shell quits through its own window instead.
+   */
+  readonly quitServer?: () => Promise<void>;
   readonly capabilities: {
     readonly community: boolean;
     readonly localComponents?: boolean;
