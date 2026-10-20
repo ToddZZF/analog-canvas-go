@@ -25,13 +25,17 @@ browser, and puts a tray icon in the desktop panel with **Open Editor**,
 | `--no-open`      | off                  | Do not open the browser on startup.              |
 
 `-tags notray` (`pnpm build:local:notray`) builds a pure-Go binary with the
-tray removed: CGO-free, works headless over SSH. On Linux the tray uses the
-DBus StatusNotifier/AppIndicator protocol — KDE shows it natively, while
-GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension,
-and some panels ship without any StatusNotifier host at all, so the icon
-never appears. **File → Quit Local Server** in the editor quits through the
-same graceful shutdown, so the server stays manageable without a tray.
-Without a session bus the server logs and stays in console mode.
+tray removed: CGO-free, works headless over SSH. On Linux the tray prefers
+the DBus StatusNotifier/AppIndicator protocol — KDE shows it natively and
+GNOME needs the "AppIndicator and KStatusNotifierItem Support" extension.
+When no StatusNotifier host is on the session bus but an X11 display is,
+the tray falls back to GTK's legacy XEmbed status icon (`tray_xembed.c`),
+which panels like this repo's XFCE on EL9 host alongside Qt and
+GtkStatusIcon icons; the Linux tray build therefore needs `gtk3-devel`
+(pkg-config `gtk+-3.0`). Panels that host neither protocol (vanilla
+GNOME) still show no icon — **File → Quit Local Server** in the editor
+quits through the same graceful shutdown. Without a session bus the
+server logs and stays in console mode.
 
 ## Where data lives
 

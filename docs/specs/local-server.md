@@ -42,10 +42,13 @@ authority in the apps/desktop sources named below.
 - `/desktop/export` and `/api/*` are absent; exports download through the
   browser page. `/desktop/system/info` reports `packaged: false`, which
   keeps file-association controls disabled.
-- The tray (`fyne.io/systray`) offers open-editor, open-projects-folder
-  and quit; builds with `-tags notray` omit it and run as a pure-Go
-  console server. Desktops whose panel hosts no StatusNotifier watcher
-  (the icon never appears) quit through the editor's File menu instead.
+- The tray offers open-editor, open-projects-folder and quit. On Unix it
+  hosts through fyne.io/systray's StatusNotifier protocol when a
+  StatusNotifierWatcher is on the session bus, and through the GTK XEmbed
+  status icon (`tray_xembed.c`) when an X11 display exists without one;
+  panels hosting neither stay in console mode. Builds with `-tags notray`
+  omit the tray and run as a pure-Go console server. Panels that host
+  neither protocol quit through the editor's File menu instead.
 
 ## Contract
 

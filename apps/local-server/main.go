@@ -149,7 +149,6 @@ func run(options serverOptions) error {
 
 	trayActive := false
 	if !options.noTray && traySupported() {
-		log.Printf("system tray active; use its menu to quit")
 		trayActive = runTrayBlocking(trayConfiguration{
 			url:      url,
 			projects: projectsRoot,
