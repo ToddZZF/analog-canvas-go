@@ -28,6 +28,8 @@ type fileHandler struct {
 	grants         map[string]*grant
 	recent         []recentProject
 	recentLoaded   bool
+	launches       []string
+	recentChanged  chan struct{}
 	authorizations *projectAuthorizations
 	creations      *projectCreations
 }
@@ -69,8 +71,94 @@ func newFileHandler(library *projectLibrary, stateDirectory string, origins []st
 		indexPath:      indexPath,
 		origins:        allowed,
 		grants:         map[string]*grant{},
+		recentChanged:  make(chan struct{}, 1),
 		authorizations: newProjectAuthorizations(indexPath + ".authorized"),
 		creations:      newProjectCreations(indexPath + ".creations"),
+	}
+}
+
+// trayProject is one recent Project as the tray menu shows it: the recent id
+// the editor's open route accepts plus the document's display name.
+type trayProject struct {
+	ID   string
+	Name string
+}
+
+// recentProjects resolves up to limit recent Projects, newest first,
+// skipping entries whose remembered file no longer sits where it was
+// remembered. Document reads happen outside the operation lock on a copied
+// slice, so a save never waits on the tray.
+func (handler *fileHandler) recentProjects(limit int) []trayProject {
+	handler.operation.Lock()
+	handler.loadRecentOnce()
+	entries := make([]recentProject, len(handler.recent))
+	copy(entries, handler.recent)
+	handler.operation.Unlock()
+	projects := make([]trayProject, 0, limit)
+	for _, entry := range entries {
+		name, ok := recentProjectName(entry)
+		if !ok {
+			continue
+		}
+		projects = append(projects, trayProject{ID: entry.ID, Name: name})
+		if len(projects) == limit {
+			break
+		}
+	}
+	return projects
+}
+
+// recentProjectName resolves a remembered entry's current display name,
+// reporting whether the file is still readable where it was remembered.
+func recentProjectName(entry recentProject) (string, bool) {
+	resolved, err := realpath(entry.Path)
+	if err != nil || pathKey(resolved) != pathKey(entry.Path) {
+		return "", false
+	}
+	documentBytes, err := readBounded(resolved)
+	if err != nil {
+		return "", false
+	}
+	document, err := parseProjectDocument(documentBytes)
+	if err != nil {
+		return "", false
+	}
+	if document.name == "" {
+		return entry.Name, true
+	}
+	return document.name, true
+}
+
+// trayLaunchQueueLimit bounds the pending deep links; stale entries are
+// skipped at serve time, the cap only stops unbounded growth.
+const trayLaunchQueueLimit = 8
+
+// queueLaunch arms a recent Project for the editor's next-launch handshake;
+// the tray uses it so a chosen Project opens in the page it is about to
+// open. Mirrors the desktop shell's launch queue behind takeLaunchFile.
+func (handler *fileHandler) queueLaunch(id string) {
+	if id == "" {
+		return
+	}
+	handler.operation.Lock()
+	defer handler.operation.Unlock()
+	handler.launches = append(handler.launches, id)
+	if len(handler.launches) > trayLaunchQueueLimit {
+		handler.launches = handler.launches[len(handler.launches)-trayLaunchQueueLimit:]
+	}
+}
+
+// changed receives a coalesced signal whenever the recent list changes, so
+// the tray can refresh its section without polling.
+func (handler *fileHandler) changed() <-chan struct{} {
+	return handler.recentChanged
+}
+
+// notifyRecent records a recent-list change without ever blocking a save.
+func (handler *fileHandler) notifyRecent() {
+	select {
+	case handler.recentChanged <- struct{}{}:
+	default:
 	}
 }
 
@@ -247,6 +335,7 @@ func (handler *fileHandler) remember(path string) string {
 	if len(handler.recent) > 20 {
 		handler.recent = handler.recent[:20]
 	}
+	handler.notifyRecent()
 	if err := handler.persistRecent(); err != nil {
 		return "The file is saved, but the recent-project list could not be updated."
 	}
@@ -400,7 +489,7 @@ func (handler *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var outcome fileOutcome
 	switch route {
 	case "next-launch":
-		outcome = map[string]any{"status": "empty"}
+		outcome = handler.nextLaunch()
 	case "copy-to-library", "saved-copy":
 		outcome = handler.copyToLibrary(r, route)
 	case "resume":
@@ -437,6 +526,22 @@ func (handler *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type fileOutcome = map[string]any
+
+// nextLaunch hands the editor the oldest queued launch request as a recent
+// id. Entries forgotten while queued are skipped, matching the desktop
+// shell's skip of launch files that no longer resolve.
+func (handler *fileHandler) nextLaunch() fileOutcome {
+	for len(handler.launches) > 0 {
+		id := handler.launches[0]
+		handler.launches = handler.launches[1:]
+		for _, entry := range handler.recent {
+			if entry.ID == id {
+				return map[string]any{"status": "queued", "id": id}
+			}
+		}
+	}
+	return map[string]any{"status": "empty"}
+}
 
 func failureOutcome(err error) fileOutcome {
 	var conflict *conflictError
@@ -666,6 +771,7 @@ func (handler *fileHandler) libraryAction(r *http.Request) fileOutcome {
 			}
 		}
 		handler.recent = kept
+		handler.notifyRecent()
 		if err := handler.persistRecent(); err != nil {
 			return failureOutcome(err)
 		}
@@ -821,6 +927,7 @@ func (handler *fileHandler) forgetOrRelease(r *http.Request, route string) fileO
 			}
 		}
 		handler.recent = kept
+		handler.notifyRecent()
 		if err := handler.persistRecent(); err != nil {
 			return failureOutcome(err)
 		}

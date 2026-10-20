@@ -13,8 +13,14 @@ pnpm build:local          # editor bundle + Go binary (tray, cgo)
 ```
 
 The server listens on `http://127.0.0.1:4173` by default, opens the system
-browser, and puts a tray icon in the desktop panel with **Open Editor**,
-**Open Projects Folder**, **About** and **Quit**.
+browser, and puts a tray icon in the desktop panel with a **Recent
+Projects** section above **Open Editor**, **Open Projects Folder**, **About**
+and **Quit**. The section lists up to five recently opened projects with
+their display names, refreshed as the editor saves and opens them; choosing
+one opens the editor on that project. The icon files `assets/tray.png` and
+`assets/tray.ico` are copies of the editor bundle's own web icon
+(`apps/editor/public/icon-192.png`); regenerate both when that artwork
+changes.
 
 | Flag             | Default              | Meaning                                          |
 | ---------------- | -------------------- | ------------------------------------------------ |

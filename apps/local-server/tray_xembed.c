@@ -10,9 +10,15 @@
 // functional in GTK 3.
 #include <gtk/gtk.h>
 #include <stdlib.h>
+#include <string.h>
 
 static GtkStatusIcon *tray_icon = NULL;
 static GtkMenu *tray_menu = NULL;
+
+// Menu rows by the id the Go side assigns at creation; updates target them
+// from the loop thread only, through the idle queue below.
+static GtkWidget **menu_items = NULL;
+static int menu_item_count = 0;
 
 // Defined by cgo from the xembedMenuSelected export in tray_xembed.go.
 extern void xembedMenuSelected(int id);
@@ -34,6 +40,16 @@ static void on_popup_menu(GtkStatusIcon *icon, guint button, guint time,
 
 static void on_item_activated(GtkMenuItem *item, gpointer user_data) {
   xembedMenuSelected(*(int *)user_data);
+}
+
+static void append_menu_item(GtkWidget *item, int id) {
+  int *slot = malloc(sizeof(int));
+  *slot = id;
+  g_signal_connect(item, "activate", G_CALLBACK(on_item_activated), slot);
+  gtk_menu_shell_append(GTK_MENU_SHELL(tray_menu), item);
+  gtk_widget_show(item);
+  menu_items = realloc(menu_items, (menu_item_count + 1) * sizeof *menu_items);
+  menu_items[menu_item_count++] = item;
 }
 
 int xembed_tray_init(void) {
@@ -69,12 +85,55 @@ void xembed_tray_set_tooltip(const char *text) {
 
 void xembed_tray_menu_item(int id, const char *label, const char *tooltip) {
   GtkWidget *item = gtk_menu_item_new_with_label(label);
-  int *slot = malloc(sizeof(int));
-  *slot = id;
-  g_signal_connect(item, "activate", G_CALLBACK(on_item_activated), slot);
   gtk_widget_set_tooltip_text(item, tooltip);
-  gtk_menu_shell_append(GTK_MENU_SHELL(tray_menu), item);
-  gtk_widget_show(item);
+  append_menu_item(item, id);
+}
+
+void xembed_tray_menu_header(int id, const char *label) {
+  GtkWidget *item = gtk_menu_item_new_with_label(label);
+  gtk_widget_set_sensitive(item, FALSE);
+  append_menu_item(item, id);
+}
+
+typedef struct {
+  int id;
+  char *label;
+  char *tooltip;
+  int visible;
+} menu_item_update;
+
+static gboolean apply_menu_item_update(gpointer data) {
+  menu_item_update *update = data;
+  if (update->id >= 0 && update->id < menu_item_count &&
+      menu_items[update->id] != NULL) {
+    if (update->label[0] != '\0') {
+      gtk_menu_item_set_label(GTK_MENU_ITEM(menu_items[update->id]),
+                              update->label);
+    }
+    gtk_widget_set_tooltip_text(menu_items[update->id],
+                                update->tooltip[0] ? update->tooltip : NULL);
+    if (update->visible) {
+      gtk_widget_show(menu_items[update->id]);
+    } else {
+      gtk_widget_hide(menu_items[update->id]);
+    }
+  }
+  free(update->label);
+  free(update->tooltip);
+  free(update);
+  return G_SOURCE_REMOVE;
+}
+
+void xembed_tray_menu_item_update(int id, const char *label,
+                                  const char *tooltip, int visible) {
+  menu_item_update *update = malloc(sizeof(menu_item_update));
+  update->id = id;
+  update->label = strdup(label ? label : "");
+  update->tooltip = strdup(tooltip ? tooltip : "");
+  update->visible = visible;
+  // Callable from any thread: the rewrite is scheduled on the GTK loop,
+  // like the quit path below.
+  g_idle_add(apply_menu_item_update, update);
 }
 
 void xembed_tray_menu_separator(void) {

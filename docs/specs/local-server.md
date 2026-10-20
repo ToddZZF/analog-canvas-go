@@ -42,20 +42,28 @@ authority in the apps/desktop sources named below.
 - `/desktop/export` and `/api/*` are absent; exports download through the
   browser page. `/desktop/system/info` reports `packaged: false`, which
   keeps file-association controls disabled.
-- The tray offers open-editor, open-projects-folder and quit. On Unix it
-  hosts through fyne.io/systray's StatusNotifier protocol when a
-  StatusNotifierWatcher is on the session bus, and through the GTK XEmbed
-  status icon (`tray_xembed.c`) when an X11 display exists without one;
-  panels hosting neither stay in console mode. Builds with `-tags notray`
-  omit the tray and run as a pure-Go console server. Panels that host
-  neither protocol quit through the editor's File menu instead.
+- The tray offers a Recent Projects section above open-editor,
+  open-projects-folder and quit: up to five recently opened projects by
+  display name, skipping remembered files that moved away, refreshed live
+  from the recent index as the editor opens and saves. Choosing an entry
+  queues its recent id for `next-launch` and opens the editor page that
+  consumes it — the tray feeds the same launch queue the desktop shell
+  feeds from native dialogs. On Unix it hosts through fyne.io/systray's
+  StatusNotifier protocol when a StatusNotifierWatcher is on the session
+  bus, and through the GTK XEmbed status icon (`tray_xembed.c`) when an
+  X11 display exists without one; panels hosting neither stay in console
+  mode. Builds with `-tags notray` omit the tray and run as a pure-Go
+  console server. Panels that host neither protocol quit through the
+  editor's File menu instead.
 
 ## Contract
 
 - `POST /desktop/project/{next-launch,resume,open,save,recent,forget,release,library,library-action,history,library-directory,copy-to-library,saved-copy,reveal}`
   with the request/response shapes of `apps/desktop/src/project-files.ts`.
-  Receipt: `{id,name,path,revision,byteDigest}`; new bindings start at
-  revision 1; conflicts answer `{status:"conflict",message}`.
+  `next-launch` serves the tray-queued recent ids first-in-first-out,
+  skipping entries since forgotten, and answers `empty` when none are
+  queued. Receipt: `{id,name,path,revision,byteDigest}`; new bindings
+  start at revision 1; conflicts answer `{status:"conflict",message}`.
 - `POST /desktop/components/{list,read,save,delete,restore,check}` with
   the shapes of `apps/desktop/src/component-library.ts`; entries are
   opaque JSON revalidated by the renderer's shared parser; at most 500

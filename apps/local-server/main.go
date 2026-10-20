@@ -42,6 +42,13 @@ type trayConfiguration struct {
 	title    string
 	tooltip  string
 	version  string
+	// recent, queue and changed are the file handler's view of the recent
+	// list: the tray shows it (recentProjects), deep-links a chosen project
+	// into the next editor page (queueLaunch) and refreshes on change
+	// (changed).
+	recent  func(limit int) []trayProject
+	queue   func(id string)
+	changed func() <-chan struct{}
 }
 
 func main() {
@@ -101,9 +108,10 @@ func run(options serverOptions) error {
 		return fmt.Errorf("the embedded editor bundle is missing or damaged; build it with `pnpm build:local`: %w", err)
 	}
 	uncommitted := dirty == "true"
+	files := newFileHandler(library, stateDirectory, origins)
 	server := &localServer{
 		static:     staticHandler,
-		files:      newFileHandler(library, stateDirectory, origins),
+		files:      files,
 		components: newComponentHandler(filepath.Join(resolvedDataDir, "components.json"), origins),
 		system:     newSystemHandler(library, resolvedDataDir, version, commit, uncommitted, origins),
 		external:   newExternalHandler(commit, origins),
@@ -155,6 +163,9 @@ func run(options serverOptions) error {
 			title:    "Analog Canvas",
 			tooltip:  "Analog Canvas — " + url,
 			version:  version,
+			recent:   files.recentProjects,
+			queue:    files.queueLaunch,
+			changed:  files.changed,
 		}, interrupt)
 		if !trayActive {
 			log.Printf("the system tray is unavailable; staying in console mode (Ctrl+C quits)")

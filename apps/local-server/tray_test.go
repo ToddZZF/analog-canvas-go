@@ -2,7 +2,10 @@
 
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestChooseTrayBackend(t *testing.T) {
 	cases := []struct {
@@ -24,5 +27,27 @@ func TestChooseTrayBackend(t *testing.T) {
 		if got := chooseTrayBackend(c.goos, c.sni, c.x11); got != c.want {
 			t.Errorf("%s: backend %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+func TestMenuProjectNameFitsOneRow(t *testing.T) {
+	if got := menuProjectName("Amplifier"); got != "Amplifier" {
+		t.Fatalf("menuProjectName = %q", got)
+	}
+	got := menuProjectName(strings.Repeat("名", 80))
+	runes := []rune(got)
+	if len(runes) != 64 || !strings.HasSuffix(got, "…") {
+		t.Fatalf("menuProjectName kept %d runes without an ellipsis suffix", len(runes))
+	}
+}
+
+func TestRecentSlotsPublishThenRead(t *testing.T) {
+	slots := recentSlots{}
+	if id := slots.at(0); id != "" {
+		t.Fatalf("empty slots answered %q", id)
+	}
+	slots.publish([]string{"first", "second"})
+	if slots.at(0) != "first" || slots.at(1) != "second" || slots.at(2) != "" {
+		t.Fatalf("slots = %q, %q, %q", slots.at(0), slots.at(1), slots.at(2))
 	}
 }

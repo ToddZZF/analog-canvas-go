@@ -17,6 +17,8 @@ int xembed_tray_init(void);
 int xembed_tray_set_icon_file(const char *path);
 void xembed_tray_set_tooltip(const char *text);
 void xembed_tray_menu_item(int id, const char *label, const char *tooltip);
+void xembed_tray_menu_header(int id, const char *label);
+void xembed_tray_menu_item_update(int id, const char *label, const char *tooltip, int visible);
 void xembed_tray_menu_separator(void);
 void xembed_tray_run(void);
 void xembed_tray_quit(void);
@@ -57,29 +59,32 @@ func runXEmbedTrayBlocking(config trayConfiguration, interrupt <-chan struct{}) 
 	cTip := C.CString(config.tooltip)
 	C.xembed_tray_set_tooltip(cTip)
 	C.free(unsafe.Pointer(cTip))
+
+	newXEmbedRecentSection(config)
+	C.xembed_tray_menu_separator()
 	openEditor := xembedAddItem("Open Editor", "Open the editor in your browser")
 	go func() {
-		for range openEditor {
+		for range openEditor.clicked {
 			_ = openInBrowser(config.url)
 		}
 	}()
 	openProjects := xembedAddItem("Open Projects Folder", config.projects)
 	go func() {
-		for range openProjects {
+		for range openProjects.clicked {
 			_ = openInFileManager(config.projects)
 		}
 	}()
 	C.xembed_tray_menu_separator()
 	about := xembedAddItem("About", "Analog Canvas "+config.version)
 	go func() {
-		for range about {
+		for range about.clicked {
 			_ = openInBrowser(externalTargets["repository"])
 		}
 	}()
 	C.xembed_tray_menu_separator()
 	quit := xembedAddItem("Quit", "Stop the local server")
 	go func() {
-		for range quit {
+		for range quit.clicked {
 			xembedTrayQuit()
 		}
 	}()
@@ -103,16 +108,84 @@ func xembedTrayQuit() {
 	C.xembed_tray_quit()
 }
 
-// xembedAddItem appends one menu entry and returns its activation channel.
-func xembedAddItem(label string, tooltip string) chan struct{} {
-	clicked := make(chan struct{})
+// xembedRow is one menu entry: its activation channel and the id the C side
+// knows the row by.
+type xembedRow struct {
+	clicked chan struct{}
+	id      int
+}
+
+// xembedAddItem appends one menu entry.
+func xembedAddItem(label string, tooltip string) xembedRow {
+	row := xembedRow{clicked: make(chan struct{}), id: len(xembedMenuClicks)}
 	cLabel := C.CString(label)
 	cTooltip := C.CString(tooltip)
-	C.xembed_tray_menu_item(C.int(len(xembedMenuClicks)), cLabel, cTooltip)
+	C.xembed_tray_menu_item(C.int(row.id), cLabel, cTooltip)
 	C.free(unsafe.Pointer(cLabel))
 	C.free(unsafe.Pointer(cTooltip))
-	xembedMenuClicks = append(xembedMenuClicks, clicked)
-	return clicked
+	xembedMenuClicks = append(xembedMenuClicks, row.clicked)
+	return row
+}
+
+// xembedAddHeaderItem appends an insensitive entry naming the section that
+// follows it. Its activation channel stays empty (GTK never fires it), but
+// it keeps the id numbering aligned with the C side.
+func xembedAddHeaderItem(label string) xembedRow {
+	row := xembedRow{clicked: make(chan struct{}), id: len(xembedMenuClicks)}
+	cLabel := C.CString(label)
+	C.xembed_tray_menu_header(C.int(row.id), cLabel)
+	C.free(unsafe.Pointer(cLabel))
+	xembedMenuClicks = append(xembedMenuClicks, row.clicked)
+	return row
+}
+
+// xembedRecentSection mirrors the StatusNotifier recent section on the GTK
+// menu: trayRecentCount fixed rows whose labels and visibility are
+// rewritten on the GTK thread through the idle queue, never from here.
+type xembedRecentSection struct {
+	config trayConfiguration
+	slots  recentSlots
+	header xembedRow
+	items  []xembedRow
+}
+
+func newXEmbedRecentSection(config trayConfiguration) {
+	section := &xembedRecentSection{config: config}
+	section.header = xembedAddHeaderItem("Recent Projects")
+	for range trayRecentCount {
+		section.items = append(section.items, xembedAddItem("", ""))
+	}
+	for slot, row := range section.items {
+		watchRecentSlot(config, &section.slots, slot, row.clicked)
+	}
+	watchRecent(config, section.refresh)
+}
+
+func (section *xembedRecentSection) refresh() {
+	projects := section.config.recent(trayRecentCount)
+	for index, row := range section.items {
+		if index < len(projects) {
+			xembedUpdateItem(row.id, menuProjectName(projects[index].Name), projects[index].Name, true)
+		} else {
+			xembedUpdateItem(row.id, "", "", false)
+		}
+	}
+	xembedUpdateItem(section.header.id, "Recent Projects", "", len(projects) > 0)
+	section.slots.publish(recentSlotIds(projects))
+}
+
+// xembedUpdateItem asks the GTK loop to rewrite one row; safe from any
+// thread, applied on the thread that runs the loop.
+func xembedUpdateItem(id int, label string, tooltip string, visible bool) {
+	cLabel := C.CString(label)
+	defer C.free(unsafe.Pointer(cLabel))
+	cTooltip := C.CString(tooltip)
+	defer C.free(unsafe.Pointer(cTooltip))
+	shown := 0
+	if visible {
+		shown = 1
+	}
+	C.xembed_tray_menu_item_update(C.int(id), cLabel, cTooltip, C.int(shown))
 }
 
 // writeXEmbedIcon hands the embedded PNG to GTK through a temp file, which
