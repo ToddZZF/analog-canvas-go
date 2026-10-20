@@ -1,0 +1,176 @@
+name: Local server release
+
+# Every push builds and publishes the full release matrix (see
+# apps/local-server/README.md): the x64 Linux job cross-compiles the
+# pure-Go console binaries for linux/windows/macOS on amd64 and arm64 and
+# adds the linux/amd64 and windows/amd64 (mingw) tray builds; the cgo tray
+# builds that need their own platform run natively — linux/arm64 on an
+# arm64 Linux runner, darwin/amd64 and darwin/arm64 on macOS (Xcode's
+# clang carries the x86_64 slice, so one Apple Silicon runner cross-builds
+# the Intel tray). The publish job merges the three artifact sets into one
+# immutable prerelease per push.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-server-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-x64:
+    name: Console matrix plus Linux x64 and Windows x64 trays
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/local-server/go.mod
+          cache-dependency-path: apps/local-server/go.sum
+      - name: Install the Windows cross toolchain and GTK development files
+        # gcc-mingw-w64-x86-64 lets the release script add the windows/amd64
+        # tray build; pkg-config gtk+-3.0 is required by the Linux XEmbed
+        # tray and by the cgo go vet/test checks below.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 libgtk-3-dev
+      - run: pnpm install --frozen-lockfile
+      - name: Go checks
+        working-directory: apps/local-server
+        run: |
+          go vet ./...
+          go test ./...
+      - name: Build the release matrix
+        run: pnpm build:local:release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-server-linux-x64-${{ github.sha }}
+          path: apps/local-server/dist/*
+          if-no-files-found: error
+
+  linux-arm64:
+    name: Linux arm64 tray build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/local-server/go.mod
+          cache-dependency-path: apps/local-server/go.sum
+      - name: Install the GTK development files for the XEmbed tray
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev
+      - run: pnpm install --frozen-lockfile
+      - name: Build the editor bundle and the tray binary
+        run: |
+          pnpm build:local:web
+          node scripts/build-local-server.mjs --tray-only linux/arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-server-linux-arm64-${{ github.sha }}
+          path: apps/local-server/dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS tray builds
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/local-server/go.mod
+          cache-dependency-path: apps/local-server/go.sum
+      - run: pnpm install --frozen-lockfile
+      - name: Build the editor bundle and both tray binaries
+        # darwin/amd64 is a cgo cross-compile: Xcode's clang carries the
+        # x86_64 slice, so Apple Silicon builds the Intel tray binary too.
+        run: |
+          pnpm build:local:web
+          node scripts/build-local-server.mjs --tray-only darwin/amd64,darwin/arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-server-macos-${{ github.sha }}
+          path: apps/local-server/dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish local server prerelease
+    needs: [linux-x64, linux-arm64, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: local-server-linux-x64-${{ github.sha }}
+          path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: local-server-linux-arm64-${{ github.sha }}
+          path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: local-server-macos-${{ github.sha }}
+          path: release-assets
+      - name: Write checksums
+        working-directory: release-assets
+        run: sha256sum analog-canvas-local-* > SHA256SUMS.txt
+      - name: Publish the binaries as a new immutable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          tag="local-server-${SOURCE_SHA:0:12}-${RUN_NUMBER}"
+          cat > release-notes.md <<'EOF'
+          One Go binary per platform serves the Analog Canvas editor and
+          stores every project on the local disk. Run the binary for your
+          platform: no installer, no account, no cloud.
+
+          - analog-canvas-local-linux-amd64 / -linux-arm64 — Linux tray builds
+          - analog-canvas-local-windows-amd64.exe — Windows x64 tray build
+          - analog-canvas-local-darwin-amd64 / -darwin-arm64 — macOS tray builds
+          - *-notray{,.exe} — pure-Go console builds for every platform
+            (linux, windows, macOS; amd64 and arm64). Ctrl+C quits.
+
+          The server listens on http://127.0.0.1:4173, opens the system
+          browser and keeps data under ~/Analog Canvas. Flags, the data
+          layout and the tray requirements per desktop are described in
+          apps/local-server/README.md in the source tree. SHA256SUMS.txt
+          lists every asset digest.
+          EOF
+          printf '\nSource commit: %s\n' "$SOURCE_SHA" >> release-notes.md
+          gh release create "$tag" release-assets/* \
+            --target "$SOURCE_SHA" --prerelease --latest=false \
+            --title "Analog Canvas Local ${SOURCE_SHA:0:8}" \
+            --notes-file release-notes.md

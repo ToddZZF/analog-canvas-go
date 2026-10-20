@@ -89,17 +89,30 @@ manager / browser via the server, which shares your desktop session.
 pnpm build:local:release
 ```
 
-produces `apps/local-server/dist/`:
+builds into `apps/local-server/dist/` everything this machine can:
 
-- `analog-canvas-local-linux-amd64` — tray build (built on this machine).
 - `analog-canvas-local-{linux,windows,darwin}-{amd64,arm64}-notray` —
-  pure-Go console builds, cross-compiled.
+  pure-Go console builds, cross-compiled from any host.
+- `analog-canvas-local-linux-amd64` — tray build, on a same-arch Linux
+  host with `gtk3-devel` (pkg-config `gtk+-3.0`).
 - `analog-canvas-local-windows-amd64.exe` — tray build, only when
-  `x86_64-w64-mingw32-gcc` is installed; otherwise build it on Windows with
-  `pnpm build:local`.
+  `x86_64-w64-mingw32-gcc` is installed; otherwise build it on Windows
+  with `pnpm build:local`.
 
-macOS tray builds need a Mac (`pnpm build:local` there). The tray library
-(`fyne.io/systray`) requires cgo on every platform.
+The tray library (`fyne.io/systray`) requires cgo on every platform, so
+the remaining tray binaries need their own platform; `--tray-only` takes
+comma-separated `goos/goarch` targets and fails instead of skipping when
+the host lacks the toolchain:
+
+```powershell
+node scripts/build-local-server.mjs --tray-only linux/arm64
+node scripts/build-local-server.mjs --tray-only darwin/amd64,darwin/arm64
+```
+
+Every push builds the complete matrix on GitHub Actions — the Linux and
+macOS trays on native arm64 Linux and macOS runners — and publishes all
+binaries plus `SHA256SUMS.txt` as a `local-server-*` prerelease
+([local-server-release.yml](../../.github/workflows/local-server-release.yml)).
 
 ## Development
 

@@ -4,9 +4,11 @@
 // from git/package metadata, and compiles the server.
 //
 // Usage:
-//   node scripts/build-local-server.mjs              # current host, tray
-//   node scripts/build-local-server.mjs --notray     # current host, no tray
-//   node scripts/build-local-server.mjs --release    # cross-platform matrix
+//   node scripts/build-local-server.mjs                    # current host, tray
+//   node scripts/build-local-server.mjs --notray           # current host, no tray
+//   node scripts/build-local-server.mjs --release          # cross-platform matrix
+//   node scripts/build-local-server.mjs --tray-only goos/goarch[,goos/goarch…]
+//                                                          # named tray builds only
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -88,6 +90,33 @@ function currentPlatform() {
   return { goos, goarch };
 }
 
+function trayTargetName(goos, goarch) {
+  return `analog-canvas-local-${goos}-${goarch}${goos === "windows" ? ".exe" : ""}`;
+}
+
+// Tray builds run cgo, so a target needs its platform toolchain on this
+// host: a same-arch Linux host with pkg-config gtk+-3.0, Windows through
+// mingw-w64, and macOS on any Mac — Xcode's clang carries the x86_64
+// slice, so Apple Silicon cross-builds the Intel tray. Returns the reason
+// a target cannot build here, or "" when it can.
+function trayToolchain(goos, goarch) {
+  const host = currentPlatform();
+  if (goos === "linux") {
+    if (host.goos !== "linux" || host.goarch !== goarch) {
+      return "linux tray builds run on a same-arch Linux host with gtk3-devel (pkg-config gtk+-3.0)";
+    }
+  } else if (goos === "windows") {
+    if (!hasTool("x86_64-w64-mingw32-gcc")) {
+      return "x86_64-w64-mingw32-gcc is not installed (build it on Windows, or install mingw-w64)";
+    }
+  } else if (goos === "darwin") {
+    if (host.goos !== "darwin") {
+      return "darwin tray builds run on a Mac";
+    }
+  }
+  return "";
+}
+
 function hasTool(name) {
   try {
     execFileSync(name, ["--version"], { stdio: "ignore" });
@@ -99,10 +128,30 @@ function hasTool(name) {
 
 const release = process.argv.includes("--release");
 const notrayOnly = process.argv.includes("--notray");
+const trayOnlyIndex = process.argv.indexOf("--tray-only");
+const knownTrayTargets = ["linux/amd64", "linux/arm64", "windows/amd64", "darwin/amd64", "darwin/arm64"];
 copyBundle();
 rmSync(distDir, { recursive: true, force: true });
 
-if (release) {
+if (trayOnlyIndex !== -1) {
+  // Explicit tray requests must build: an unavailable toolchain is an
+  // error here, not a skip, so CI runners never publish a partial set.
+  const targets = (process.argv[trayOnlyIndex + 1] ?? "").split(",").filter(Boolean);
+  if (targets.length === 0) {
+    throw new Error("--tray-only needs goos/goarch targets, e.g. --tray-only darwin/amd64,darwin/arm64");
+  }
+  for (const target of targets) {
+    if (!knownTrayTargets.includes(target)) {
+      throw new Error(`unsupported tray target "${target}"; known: ${knownTrayTargets.join(", ")}`);
+    }
+    const [goos, goarch] = target.split("/");
+    const reason = trayToolchain(goos, goarch);
+    if (reason) {
+      throw new Error(`cannot build tray for ${target} on this host: ${reason}`);
+    }
+    goBuild(goos, goarch, "", trayTargetName(goos, goarch), true);
+  }
+} else if (release) {
   // cgo system-tray builds must run on their own platform or with a C
   // cross-toolchain; everything else ships as a pure-Go console build.
   goBuild("linux", "amd64", "notray", "analog-canvas-local-linux-amd64-notray", false);
@@ -110,19 +159,17 @@ if (release) {
   goBuild("windows", "amd64", "notray", "analog-canvas-local-windows-amd64-notray.exe", false);
   goBuild("darwin", "amd64", "notray", "analog-canvas-local-darwin-amd64-notray", false);
   goBuild("darwin", "arm64", "notray", "analog-canvas-local-darwin-arm64-notray", false);
-  if (hasTool("x86_64-w64-mingw32-gcc")) {
-    goBuild("windows", "amd64", "", "analog-canvas-local-windows-amd64.exe", true);
+  const windowsReason = trayToolchain("windows", "amd64");
+  if (windowsReason) {
+    console.log(`skipped windows/amd64 tray build: ${windowsReason}`);
   } else {
-    console.log(
-      "skipped windows/amd64 tray build: x86_64-w64-mingw32-gcc is not installed " +
-        "(build it on Windows, or install mingw-w64)",
-    );
+    goBuild("windows", "amd64", "", trayTargetName("windows", "amd64"), true);
   }
-  const host = currentPlatform();
-  if (host.goos === "linux" && host.goarch === "amd64") {
-    goBuild("linux", "amd64", "", "analog-canvas-local-linux-amd64", true);
+  const linuxReason = trayToolchain("linux", "amd64");
+  if (linuxReason) {
+    console.log(`skipped linux/amd64 tray build: ${linuxReason}`);
   } else {
-    console.log(`skipped tray build for ${host.goos}/${host.goarch}: build it natively on that platform`);
+    goBuild("linux", "amd64", "", trayTargetName("linux", "amd64"), true);
   }
 } else {
   const { goos, goarch } = currentPlatform();
