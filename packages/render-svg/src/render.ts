@@ -3,6 +3,7 @@ import { renderFractionText } from "./fraction-text.js";
 import { RectSchema, SchematicDocumentSchema } from "@icm/model";
 import {
   contactRequiresJunctionDot,
+  junctionForContact,
   deriveDocumentContactEvidence,
   deriveMosBulkRouteFamily,
   resolveDocumentRoutingGeometry,
@@ -28,7 +29,6 @@ import type {
   DerivedRect,
   GridRect,
   RouteBranch,
-  RouteEndpoint,
   SchematicDocument,
 } from "@icm/model";
 import {
@@ -430,14 +430,9 @@ export function buildSvgScene(
   const junctions = dottedContacts
     .sort((left, right) => left.id.localeCompare(right.id, "en"))
     .map((contact) => {
-      const junctionEndpoint = contact.endpoints.find(
-        (endpoint): endpoint is Extract<RouteEndpoint, { kind: "junction" }> =>
-          endpoint.kind === "junction",
-      );
-      const objectId = junctionEndpoint?.junctionId ?? contact.id;
-      const derivedAttribute = junctionEndpoint
-        ? ""
-        : ' data-node-kind="contact"';
+      const junction = junctionForContact(contact, junctionsById);
+      const objectId = junction?.id ?? contact.id;
+      const derivedAttribute = junction ? "" : ' data-node-kind="contact"';
       const dotProfile = contactProfile(contact);
       const routeColors = new Set(
         contact.incidents.flatMap((incident) => {
@@ -451,7 +446,8 @@ export function buildSvgScene(
       // A single wire color belongs to the whole contact. Mixed colors have
       // no unambiguous owner, so the dot keeps the Document's foreground.
       const dotColor =
-        routeColors.size === 1 ? [...routeColors][0]! : dotProfile.foreground;
+        junction?.styleOverride?.color ??
+        (routeColors.size === 1 ? [...routeColors][0]! : dotProfile.foreground);
       return `<circle data-object-id="${escapeXml(objectId)}"${derivedAttribute} cx="${contact.point.x}" cy="${contact.point.y}" r="${dotProfile.nodes.junctionRadius}" fill="${escapeXml(dotColor)}"/>`;
     })
     .join("");

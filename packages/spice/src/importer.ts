@@ -33,7 +33,11 @@ import type { SpiceDiagnostic } from "./diagnostics.js";
 import type { CircuitCellIR, CircuitIR, CircuitInstanceIR } from "./ir.js";
 import type { SourceBundle, SpiceSourceInput } from "./source-types.js";
 import { compileSpiceSources } from "./compiler.js";
-import { decodeSourceContent, normalizeSourcePath } from "./source.js";
+import {
+  decodeSourceContent,
+  isSpectreSource,
+  normalizeSourcePath,
+} from "./source.js";
 import { parseNgspiceSourceParameters } from "./source-parameters.js";
 
 export interface SpiceImportResult extends SpiceCompileResult {
@@ -504,6 +508,7 @@ function importProvenance(
 function undeclaredModelMessage(
   instance: CircuitInstanceIR,
   modelTypeByName: ReadonlyMap<string, string>,
+  spectre: boolean,
 ): string | undefined {
   if (instance.target.kind !== "model") return undefined;
   const model = instance.target.modelName;
@@ -513,7 +518,18 @@ function undeclaredModelMessage(
       instance.terminals.length
     ] ?? [];
   if (!types.length) return undefined;
-  return `${instance.name} uses model ${model}, which no .model card declares, so its device type is unknown. Add ${types.map((type) => `".model ${model} ${type}"`).join(" or ")}.`;
+  const declaration = spectre ? "model statement" : ".model card";
+  const suggestions = types.map((type) => {
+    if (!spectre) return `".model ${model} ${type}"`;
+    const native =
+      type === "d"
+        ? "diode"
+        : type === "npn" || type === "pnp"
+          ? `bjt type=${type}`
+          : `bsim4 type=${type === "nmos" ? "n" : "p"}`;
+    return `"model ${model} ${native}"`;
+  });
+  return `${instance.name} uses model ${model}, which no ${declaration} declares, so its device type is unknown. Add ${suggestions.join(" or ")}.`;
 }
 
 /**
@@ -547,6 +563,7 @@ function importInstance(
   modelTypeByName: ReadonlyMap<string, string>,
   symbolMappings: readonly PdkSymbolMappingOverride[],
   builtInBodies: ReadonlyMap<string, SpiceBuiltInBody>,
+  spectre: boolean,
 ): Instance | null {
   const body = calledBuiltInBody(instance, builtInBodies);
   if (body) return importBuiltInBlock(instance, body, diagnostics);
@@ -557,7 +574,7 @@ function importInstance(
         "SPICE_IMPORT_UNSUPPORTED_SYMBOL",
         "error",
         "import",
-        undeclaredModelMessage(instance, modelTypeByName) ??
+        undeclaredModelMessage(instance, modelTypeByName, spectre) ??
           `Unsupported SPICE device ${instance.name} (${targetDescription(instance, symbolMappings)}): the approved Razavi catalog has no symbol. Add and review a Razavi symbol mapping before importing.`,
         instance.sourceRef,
       ),
@@ -917,6 +934,7 @@ function importDocument(
   modelTypeByName: ReadonlyMap<string, string>,
   options: SpiceImportOptions,
   builtInBodies: ReadonlyMap<string, SpiceBuiltInBody>,
+  spectreFileIds: ReadonlySet<string>,
 ): SchematicDocument {
   const symbolMappings = options.symbolMappings ?? [];
   const namingProfile = options.namingProfile ?? "native";
@@ -944,6 +962,7 @@ function importDocument(
         modelTypeByName,
         symbolMappings,
         builtInBodies,
+        spectreFileIds.has(instance.sourceRef.fileId),
       ),
     )
     .filter((instance): instance is Instance => instance !== null);
@@ -1473,8 +1492,26 @@ function importCircuitIR(
   const isBody = (name: string) =>
     builtInBodies.has(builtInBodyKey("subcircuit", name));
   const cells = ir.cells.filter((cell) => !isBody(cell.name));
+  const spectreFileIds = new Set(
+    bundle.files
+      .filter((file) =>
+        isSpectreSource(
+          options.originalSources?.find(
+            (input) => normalizeSourcePath(input.path) === file.path,
+          ) ?? { path: file.path, bytes: new TextEncoder().encode(file.text) },
+        ),
+      )
+      .map((file) => file.id),
+  );
   const importedDocuments = cells.map((cell) =>
-    importDocument(cell, diagnostics, modelTypeByName, options, builtInBodies),
+    importDocument(
+      cell,
+      diagnostics,
+      modelTypeByName,
+      options,
+      builtInBodies,
+      spectreFileIds,
+    ),
   );
   const { documents, externalSubcircuitDefinitions } =
     bindImportedChildDocuments(importedDocuments);

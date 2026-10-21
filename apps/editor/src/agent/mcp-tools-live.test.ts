@@ -680,7 +680,9 @@ describe("MCP tools on the live editor", () => {
     expect(Buffer.byteLength(text)).toBeLessThan(3_000);
     const asked = await editor.tool("connect", { detail: "full" });
     expect(asked.capabilities).toEqual(paired.capabilities);
-  });
+    // Three full capability reads of the live editor: about 1 s alone, but
+    // past the default 5 s under a parallel run (timed out 10-18 and 10-21).
+  }, 20_000);
 
   it("get_context returns the compact context of the editor's Document", async () => {
     const editor = await connected();

@@ -259,6 +259,17 @@ export function DrawingToolbar({
       <button
         type="button"
         className="draw-tool"
+        data-testid="draw-tool-no-connect"
+        aria-pressed={tool === "no-connect"}
+        title="No Connect: mark intentionally unused pins"
+        onClick={() => onActivateTool("no-connect")}
+      >
+        <ToolIcon name="no-connect" />
+        <span>NoConn</span>
+      </button>
+      <button
+        type="button"
+        className="draw-tool"
         data-testid="draw-tool-text"
         aria-label="Text"
         title="Text (T)"

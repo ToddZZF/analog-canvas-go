@@ -5,6 +5,7 @@ import {
   type RoutingSelectionSeed,
 } from "@icm/derived";
 import type { SchematicDocument } from "@icm/model";
+import type { SymbolResolver } from "@icm/symbols";
 import { withPowerMarkerOwnership } from "./power-marker-ownership.js";
 
 export interface RoutingCopyCapture {
@@ -17,6 +18,7 @@ export interface RoutingCopyCapture {
 
 export interface RoutingCopyCaptureOptions {
   readonly includeImplicitInstanceRoutes?: boolean;
+  readonly resolver?: SymbolResolver | undefined;
 }
 
 function stable(values: Iterable<string>): string[] {
@@ -51,7 +53,13 @@ export function captureRoutingCopyFragment(
         selectedInstances.has(terminal.instanceId),
       )
         ? [net.id]
-        : affected.internalRoutes.some(
+        : affected.internalJunctions.some((id) =>
+              document.junctions.some(
+                (j) =>
+                  j.id === id && j.netId === net.id && j.styleOverride?.color,
+              ),
+            ) ||
+            affected.internalRoutes.some(
               (routeId) =>
                 document.routes.find((route) => route.id === routeId)?.netId ===
                 net.id,

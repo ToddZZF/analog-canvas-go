@@ -133,12 +133,26 @@ describe("component insertion catalog", () => {
     expect(groups.at(-1)?.category).toBe("Extended Devices");
   });
 
-  it("offers one comparator entry and keeps its unmarked style internal", () => {
+  it("offers single-ended and fully differential comparators, keeping styles internal", () => {
     const symbols = flattenComponentCatalog(
       componentCatalog("razavi-textbook-v1", "comparator"),
     );
 
-    expect(symbols.map((symbol) => symbol.id)).toEqual(["comparator"]);
+    expect(symbols.map((symbol) => symbol.id)).toEqual([
+      "comparator",
+      "comparator-differential",
+    ]);
+    expect(symbolCategory("comparator-differential")).toBe("Analog Blocks");
+    const differential = symbols[1]!;
+    expect(differential.pins.map((pin) => [pin.name, pin.at])).toEqual([
+      ["IN+", { x: -40, y: 10 }],
+      ["IN-", { x: -40, y: -10 }],
+      ["OUT+", { x: 30, y: 10 }],
+      ["OUT-", { x: 30, y: -10 }],
+    ]);
+    expect(differential.primitives).toContainEqual(
+      expect.objectContaining({ part: "hysteresis-step" }),
+    );
   });
 
   it("offers the two-terminal variable resistor as a searchable extended device", () => {
@@ -352,6 +366,7 @@ describe("reach order inside a category", () => {
       "transconductance",
       "differential-transconductance",
       "comparator",
+      "comparator-differential",
       "adc",
       "dac",
     ]);

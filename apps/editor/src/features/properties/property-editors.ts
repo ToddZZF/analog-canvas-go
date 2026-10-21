@@ -5,4 +5,5 @@ export { DraftingPropertiesPanel } from "../drafting/drafting-properties-panel";
 export { RoutePropertyCodeEditor } from "./route-property-code-editor";
 export { GroupPropertyCodeEditor } from "./group-property-code-editor";
 export { ItemPropertySummary } from "./item-property-summary";
+export { JunctionColorProperties } from "./junction-color-properties";
 export { DocumentSettingsSection } from "../editor-shell/document-settings-section";

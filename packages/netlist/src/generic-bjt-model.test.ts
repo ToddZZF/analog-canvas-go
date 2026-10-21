@@ -156,18 +156,31 @@ describe("the generic bipolar models (#1420)", () => {
     expect(genericFindings(imported)).toEqual([]);
   });
 
-  it("prints the cards in SPICE only: Spectre still names NPN alone", () => {
+  it("prints native Spectre stand-ins ahead of the transistors that use them", () => {
     const result = createDesignNetlistExport(
-      bjtProject([{ id: "q1", reference: "Q1" }]),
+      bjtProject([
+        { id: "q1", reference: "Q1" },
+        { id: "q2", reference: "Q2", symbolId: "pnp" },
+      ]),
       { format: "spectre" },
     );
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.file.text).toContain("Q1 (collector base emitter) NPN");
-    expect(result.file.text).not.toMatch(/^\s*model\b/mu);
+    expect(result.file.text).toContain(
+      "model NPN bjt type=npn is=1e-16 bf=100 vaf=100",
+    );
+    expect(result.file.text).toContain(
+      "model PNP bjt type=pnp is=1e-16 bf=50 vaf=50",
+    );
     expect(
       result.diagnostics.filter((item) => item.code === "GENERIC_BJT_MODEL"),
-    ).toEqual([]);
+    ).toHaveLength(1);
+    const run = analyzeDesignNetlist(
+      bjtProject([{ id: "q1", reference: "Q1" }]),
+      { format: "spectre", deckSources: [] },
+    );
+    expect(run.ir!.cells.flatMap((cell) => cell.models ?? [])).toEqual([]);
   });
 
   it("writes the same transistors for VACASK", () => {

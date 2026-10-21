@@ -204,6 +204,7 @@ export function copySelection(
     {
       // Only explicitly selected wires travel with a new component.
       includeImplicitInstanceRoutes: false,
+      resolver,
     },
   );
   const netIds = new Set(capture.clonedNetIds);

@@ -1,4 +1,4 @@
-import { flattenRichText } from "@icm/model";
+import { flattenRichText, resolveCellSymbolPinPlacements } from "@icm/model";
 import type {
   CellSymbolPresentation,
   CellSymbolSide,
@@ -61,10 +61,6 @@ function estimatedLabelWidth(terminal: HierarchicalBlockTerminal): number {
   return Math.max(20, Math.max(terminal.name.length, shown) * 10);
 }
 
-function slotKey(side: CellSymbolSide, offset: number): string {
-  return `${side}:${offset}`;
-}
-
 function automaticOffsets(): number[] {
   const result = [0];
   for (let distance = ROW_PITCH; distance <= 2000; distance += ROW_PITCH) {
@@ -73,70 +69,16 @@ function automaticOffsets(): number[] {
   return result;
 }
 
-function nextAutomaticOffset(
-  side: CellSymbolSide,
-  occupied: Set<string>,
-): number {
-  for (const offset of automaticOffsets()) {
-    if (!occupied.has(slotKey(side, offset))) return offset;
-  }
-  throw new Error(`No automatic hierarchy pin slot on ${side}`);
-}
-
-function defaultSide(
-  terminal: HierarchicalBlockTerminal,
-  westCount: number,
-  eastCount: number,
-): "west" | "east" {
-  switch (terminal.direction) {
-    case "input":
-      return "west";
-    case "output":
-      return "east";
-    case "inout":
-    case "passive":
-      return westCount <= eastCount ? "west" : "east";
-  }
-}
-
 function resolvePinSlots(
   terminals: readonly HierarchicalBlockTerminal[],
   presentation: CellSymbolPresentation | undefined,
 ): PinSlot[] {
-  const explicit = new Map(
-    (presentation?.pinPlacements ?? []).map((placement) => [
-      placement.terminalId,
-      placement,
-    ]),
-  );
-  const occupied = new Set(
-    (presentation?.pinPlacements ?? []).map((placement) =>
-      slotKey(placement.side, placement.offset),
-    ),
-  );
-  let westCount = (presentation?.pinPlacements ?? []).filter(
-    (placement) => placement.side === "west",
-  ).length;
-  let eastCount = (presentation?.pinPlacements ?? []).filter(
-    (placement) => placement.side === "east",
-  ).length;
-
-  return terminals.map((terminal) => {
-    const placement = explicit.get(terminal.id);
-    if (placement) {
-      return {
-        terminal,
-        side: placement.side,
-        offset: placement.offset,
-      };
-    }
-    const side = defaultSide(terminal, westCount, eastCount);
-    const offset = nextAutomaticOffset(side, occupied);
-    occupied.add(slotKey(side, offset));
-    if (side === "west") westCount += 1;
-    else eastCount += 1;
-    return { terminal, side, offset };
-  });
+  const slots = resolveCellSymbolPinPlacements(terminals, presentation);
+  return terminals.map((terminal, index) => ({
+    terminal,
+    side: slots[index]!.side,
+    offset: slots[index]!.offset,
+  }));
 }
 
 /** Where a Pin stands on a block: its side and its offset along that side. */
@@ -249,6 +191,10 @@ export function hierarchicalBlockBodySize(
   presentation?: CellSymbolPresentation,
   options: HierarchicalBlockLayoutOptions = {},
 ): { width: number; height: number } {
+  if (presentation?.bodyBounds) {
+    const { left, right, top, bottom } = presentation.bodyBounds;
+    return { width: right - left, height: bottom - top };
+  }
   return bodySize(
     resolvePinSlots(terminals, presentation),
     presentation?.minimumBodySize,
@@ -256,7 +202,62 @@ export function hierarchicalBlockBodySize(
   );
 }
 
-function pinForSlot(slot: PinSlot, width: number, height: number): SymbolPin {
+/** Conservative name clearance advice; explicit edges are never changed. */
+export function hierarchicalBlockLabelWarnings(
+  terminals: readonly HierarchicalBlockTerminal[],
+  presentation?: CellSymbolPresentation,
+): string[] {
+  const bounds = presentation?.bodyBounds;
+  if (!bounds) return [];
+  const boxes = resolvePinSlots(terminals, presentation).map(
+    ({ terminal, side, offset }) => {
+      const width = estimatedLabelWidth(terminal);
+      const x =
+        side === "west"
+          ? bounds.left + 4
+          : side === "east"
+            ? bounds.right - 4 - width
+            : offset - width / 2;
+      const baseline =
+        side === "north"
+          ? bounds.top + 18
+          : side === "south"
+            ? bounds.bottom - 10
+            : offset + 4;
+      return { name: terminal.name, x, y: baseline - 12, width, height: 16 };
+    },
+  );
+  const crowded = new Set<string>();
+  for (const [index, box] of boxes.entries()) {
+    if (
+      box.x < bounds.left ||
+      box.x + box.width > bounds.right ||
+      box.y < bounds.top ||
+      box.y + box.height > bounds.bottom
+    )
+      crowded.add(box.name);
+    for (const other of boxes.slice(index + 1))
+      if (
+        box.x < other.x + other.width &&
+        box.x + box.width > other.x &&
+        box.y < other.y + other.height &&
+        box.y + box.height > other.y
+      ) {
+        crowded.add(box.name);
+        crowded.add(other.name);
+      }
+  }
+  return crowded.size
+    ? [
+        `Pin names may overlap or exceed this body: ${[...crowded].join(", ")}. Resize or move pins; explicit edges are kept.`,
+      ]
+    : [];
+}
+
+function pinForSlot(
+  slot: PinSlot,
+  bounds: { left: number; right: number; top: number; bottom: number },
+): SymbolPin {
   const presentation = {
     visibility: "visible" as const,
     leadLength: PIN_LEAD,
@@ -267,7 +268,7 @@ function pinForSlot(slot: PinSlot, width: number, height: number): SymbolPin {
       return {
         name: slot.terminal.name,
         role: "hierarchical-port",
-        at: { x: -width / 2 - PIN_LEAD, y: slot.offset },
+        at: { x: bounds.left - PIN_LEAD, y: slot.offset },
         direction: "west",
         presentation,
       };
@@ -275,7 +276,7 @@ function pinForSlot(slot: PinSlot, width: number, height: number): SymbolPin {
       return {
         name: slot.terminal.name,
         role: "hierarchical-port",
-        at: { x: width / 2 + PIN_LEAD, y: slot.offset },
+        at: { x: bounds.right + PIN_LEAD, y: slot.offset },
         direction: "east",
         presentation,
       };
@@ -283,7 +284,7 @@ function pinForSlot(slot: PinSlot, width: number, height: number): SymbolPin {
       return {
         name: slot.terminal.name,
         role: "hierarchical-port",
-        at: { x: slot.offset, y: -height / 2 - PIN_LEAD },
+        at: { x: slot.offset, y: bounds.top - PIN_LEAD },
         direction: "north",
         presentation,
       };
@@ -291,23 +292,26 @@ function pinForSlot(slot: PinSlot, width: number, height: number): SymbolPin {
       return {
         name: slot.terminal.name,
         role: "hierarchical-port",
-        at: { x: slot.offset, y: height / 2 + PIN_LEAD },
+        at: { x: slot.offset, y: bounds.bottom + PIN_LEAD },
         direction: "south",
         presentation,
       };
   }
 }
 
-function leadToBody(pin: SymbolPin, width: number, height: number) {
+function leadToBody(
+  pin: SymbolPin,
+  bounds: { left: number; right: number; top: number; bottom: number },
+) {
   switch (pin.direction) {
     case "west":
-      return { x: -width / 2, y: pin.at.y };
+      return { x: bounds.left, y: pin.at.y };
     case "east":
-      return { x: width / 2, y: pin.at.y };
+      return { x: bounds.right, y: pin.at.y };
     case "north":
-      return { x: pin.at.x, y: -height / 2 };
+      return { x: pin.at.x, y: bounds.top };
     case "south":
-      return { x: pin.at.x, y: height / 2 };
+      return { x: pin.at.x, y: bounds.bottom };
   }
 }
 
@@ -318,14 +322,19 @@ export function createHierarchicalBlockGeometry(
   options: HierarchicalBlockLayoutOptions = {},
 ): SymbolDefinition {
   const slots = resolvePinSlots(terminals, presentation);
-  const { width, height } = bodySize(
-    slots,
-    presentation?.minimumBodySize,
+  const { width, height } = hierarchicalBlockBodySize(
+    terminals,
+    presentation,
     options,
   );
-  const pins = slots.map((slot) => pinForSlot(slot, width, height));
-  const left = -width / 2;
-  const top = -height / 2;
+  const bounds = presentation?.bodyBounds ?? {
+    left: -width / 2,
+    right: width / 2,
+    top: -height / 2,
+    bottom: height / 2,
+  };
+  const { left, right, top, bottom } = bounds;
+  const pins = slots.map((slot) => pinForSlot(slot, bounds));
   return {
     schemaVersion: 1,
     id: "derived-hierarchical-block",
@@ -342,9 +351,9 @@ export function createHierarchicalBlockGeometry(
         kind: "polygon",
         points: [
           { x: left, y: top },
-          { x: -left, y: top },
-          { x: -left, y: -top },
-          { x: left, y: -top },
+          { x: right, y: top },
+          { x: right, y: bottom },
+          { x: left, y: bottom },
         ],
         fill: "none",
         stroke: "foreground",
@@ -352,7 +361,7 @@ export function createHierarchicalBlockGeometry(
       ...pins.map((pin) => ({
         kind: "line" as const,
         from: pin.at,
-        to: leadToBody(pin, width, height),
+        to: leadToBody(pin, bounds),
       })),
     ],
     variants: [],

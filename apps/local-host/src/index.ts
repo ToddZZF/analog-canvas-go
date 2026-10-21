@@ -54,9 +54,12 @@ export async function startLocalHost(
     response.setHeader(
       "Content-Security-Policy",
       // 'wasm-unsafe-eval' lets bundled WebAssembly compile; no JavaScript eval.
-      "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'",
+      "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://rich-netlist.github.io",
     );
-    response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    response.setHeader(
+      "Cross-Origin-Opener-Policy",
+      "same-origin-allow-popups",
+    );
     response.setHeader("X-Content-Type-Options", "nosniff");
     const isSimulate =
       request.url === "/api/simulate" && request.method === "POST";

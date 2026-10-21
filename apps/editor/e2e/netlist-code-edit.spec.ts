@@ -200,7 +200,7 @@ test("lists every netlist issue and shows the one clicked on the canvas", async 
   const project = createEmptyProject("netlist-issues", "Netlist issues");
   for (const [index, id] of ["D1", "D2"].entries())
     project.documents[0]!.instances.push({
-      ...placedInstance(id, "delay-cell", 200 + index * 200, 200),
+      ...placedInstance(id, "unit-delay", 200 + index * 200, 200),
       reference: id,
     });
   await openEditorOn(page, project);
@@ -216,7 +216,7 @@ test("lists every netlist issue and shows the one clicked on the canvas", async 
   await expect(list).toBeVisible();
   await expectStatus(
     page,
-    "Netlist: Symbol delay-cell has no reviewed netlist definition",
+    "Netlist: Symbol unit-delay has no reviewed netlist definition",
   );
 });
 

@@ -2,6 +2,7 @@ import type { CircuitProject, StableId } from "@icm/model";
 import type { BodyPortOrder } from "@icm/netlist";
 
 import list from "./symbol-list.json";
+import { inlineRnlSymbols } from "./inline-symbols.js";
 import type { RnlOrient } from "./orientation.js";
 import type { RnlPoint } from "./place.js";
 
@@ -33,6 +34,8 @@ export interface RnlPin {
  * authority and this list is checked against it.
  */
 export interface RnlSymbol {
+  /** Defined inside the exported file instead of loaded from a package. */
+  inline?: boolean;
   /** The RNL symbol, such as `$NMOS`. */
   symbol: string;
   /**
@@ -100,8 +103,8 @@ interface ListEntry {
 
 const point = (values: readonly number[]): RnlPoint => [values[0]!, values[1]!];
 
-export const RNL_SYMBOLS: readonly RnlSymbol[] = (list as ListEntry[]).map(
-  (entry) => ({
+export const RNL_SYMBOLS: readonly RnlSymbol[] = [
+  ...(list as ListEntry[]).map((entry) => ({
     symbol: entry.symbol,
     orient: entry.orient,
     importOnly: entry.import_only ?? false,
@@ -122,8 +125,9 @@ export const RNL_SYMBOLS: readonly RnlSymbol[] = (list as ListEntry[]).map(
       acPin: pin.ac_pin,
     })),
     acNetlistOrder: entry.ac_netlist_order,
-  }),
-);
+  })),
+  ...inlineRnlSymbols,
+];
 
 /** The terminal an Analog Canvas pin connects, drawn or hidden by the variant. */
 export function terminalOfPin(

@@ -12,6 +12,11 @@ import {
   deriveDocumentContactEvidence,
 } from "@icm/derived";
 import { hierarchicalSymbolId } from "@icm/symbols";
+import {
+  planSetCellSymbolPresentation,
+  proposeBlockSymbolLayout,
+} from "@icm/edit-engine";
+import { serializeProject, parseProject } from "@icm/project-protocol";
 
 import { EditorDocumentController } from "./document-controller";
 
@@ -37,6 +42,130 @@ function hierarchicalProject() {
 }
 
 describe("EditorDocumentController", () => {
+  it("restores every rotated and mirrored caller of an asymmetric layout in one Undo, with atomic stale/no-op/refused edits", () => {
+    const project = hierarchicalProject();
+    const root = project.documents[0]!,
+      child = project.documents[1]!;
+    for (const name of ["A", "B", "C"]) {
+      child.instances.push({
+        id: `P${name}`,
+        symbolId: "port",
+        placement: null,
+      });
+      child.nets.push({
+        id: name,
+        terminals: [{ instanceId: `P${name}`, pinName: "P" }],
+      });
+      child.netlist!.terminals.push({
+        id: name,
+        name,
+        netId: name,
+        direction: "input",
+        interfaceInstanceIds: [`P${name}`],
+      });
+    }
+    child.presentation.cellSymbol = {
+      minimumBodySize: { width: 120, height: 100 },
+    };
+    for (const rotation of [0, 45, 90, 135, 180, 225, 270, 315] as const)
+      for (const mirror of ["none", "horizontal", "vertical", "both"] as const)
+        root.instances.push({
+          id: `X${rotation}-${mirror}`,
+          reference: `X${rotation}-${mirror}`,
+          symbolId: hierarchicalSymbolId("child"),
+          placement: {
+            position: { x: rotation * 10, y: mirror.length * 100 },
+            rotation,
+            mirror,
+          },
+          netlist: {
+            parameters: {},
+            binding: { kind: "subcircuit", childDocumentId: child.id },
+          },
+        });
+    const controller = new EditorDocumentController(project);
+    const placements = controller.document.instances.map(
+      (instance) => instance.placement,
+    );
+    const proposal = proposeBlockSymbolLayout(
+      {
+        id: "layout",
+        name: "child",
+        terminals: child.netlist!.terminals,
+        presentation: child.presentation.cellSymbol,
+      },
+      { kind: "resize", grip: "west", point: { x: -100, y: 0 } },
+    );
+    expect(proposal.ok).toBe(true);
+    if (!proposal.ok) return;
+    const request = {
+      transactionId: "layout",
+      projectId: project.id,
+      expectedStructureRevision: controller.project.structureRevision,
+      actor: { kind: "human" as const, id: "test" },
+      edits: planSetCellSymbolPresentation(
+        controller.project,
+        child.id,
+        proposal.presentation,
+      ),
+    };
+    expect(controller.dispatchProjectTransaction(request)).toMatchObject({
+      ok: true,
+      applied: true,
+    });
+    const edited = parseProject(serializeProject(controller.project));
+    expect(edited.documents[1]!.presentation.cellSymbol?.bodyBounds).toEqual({
+      left: -100,
+      right: 60,
+      top: -50,
+      bottom: 50,
+    });
+    expect(
+      controller.document.instances.map((instance) => instance.placement),
+    ).toEqual(placements);
+    const same = {
+      ...request,
+      expectedStructureRevision: controller.project.structureRevision,
+      edits: planSetCellSymbolPresentation(
+        controller.project,
+        child.id,
+        proposal.presentation,
+      ),
+    };
+    expect(controller.dispatchProjectTransaction(same)).toMatchObject({
+      ok: true,
+      applied: false,
+    });
+    expect(controller.dispatchProjectTransaction(request)).toMatchObject({
+      ok: false,
+    });
+    expect(
+      controller.dispatchProjectTransaction({
+        ...same,
+        edits: planSetCellSymbolPresentation(controller.project, child.id, {
+          bodyBounds: { left: 0, right: 10, top: 0, bottom: 10 },
+        }),
+      }),
+    ).toMatchObject({ ok: false });
+    expect(controller.transact([{ kind: "undo" }])).toMatchObject({
+      ok: true,
+      applied: true,
+    });
+    expect(controller.project.documents[1]!.presentation.cellSymbol).toEqual(
+      child.presentation.cellSymbol,
+    );
+    expect(
+      controller.document.instances.map((instance) => instance.placement),
+    ).toEqual(placements);
+    expect(controller.canUndo).toBe(false);
+    expect(controller.transact([{ kind: "redo" }])).toMatchObject({
+      ok: true,
+      applied: true,
+    });
+    expect(controller.project.documents[1]!.presentation.cellSymbol).toEqual(
+      edited.documents[1]!.presentation.cellSymbol,
+    );
+  });
   it("reuses current contact evidence without changing transforms, refusals or history", () => {
     const project = createEmptyProject("contact", "Contact");
     const document = project.documents[0]!;

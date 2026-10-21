@@ -25,6 +25,48 @@ const fixture = () =>
   );
 
 describe("instance-owned portable source", () => {
+  it("opens a legacy Project whose ordinary parameter is named bodyBounds", () => {
+    const before = fixture();
+    const instance = before.documents[0]!.instances.find(
+      (item) => item.reference,
+    )!;
+    instance.netlist = {
+      ...instance.netlist,
+      parameters: { ...instance.netlist?.parameters, bodyBounds: "1k" },
+    };
+    const source = JSON.parse(
+      serializeProject(withProjectComponentDefinitions(before)),
+    );
+    source.schemaVersion = 73;
+    const result = tryParseProjectWithMetadata(JSON.stringify(source));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(
+      result.project.documents[0]!.instances.find(
+        (item) => item.id === instance.id,
+      )!.netlist?.parameters,
+    ).toEqual(instance.netlist.parameters);
+  });
+
+  it("keeps explicit Cell extents through Project Code and recovery bytes", () => {
+    const before = createEmptyProject("bounds", "Bounds");
+    const source = JSON.parse(serializeProject(before));
+    source.documents[0].presentation.cellSymbol = {
+      bodyBounds: { left: -20, right: 100, top: -40, bottom: 80 },
+    };
+    const commit = planProjectCodeCommit(
+      before,
+      JSON.stringify(source),
+      before.topDocumentId,
+    );
+    expect(commit.ok).toBe(true);
+    if (!commit.ok) return;
+    const recovery = serializeProject(commit.project);
+    expect(
+      parseProject(recovery).documents[0]!.presentation.cellSymbol,
+    ).toEqual({ bodyBounds: { left: -20, right: 100, top: -40, bottom: 80 } });
+    expect(serializeProject(parseProject(recovery))).toBe(recovery);
+  });
   it("round-trips all authored fields, rendering, and electrical analysis exactly", () => {
     const before = withProjectComponentDefinitions(fixture());
     const encoded = serializeProject(before);

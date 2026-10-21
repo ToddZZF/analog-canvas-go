@@ -532,7 +532,7 @@ export const AgentAuthoringCommandSchema = z.discriminatedUnion("kind", [
               .int()
               .optional()
               .describe(
-                "From the side's middle, a multiple of 10. Left out: a Pin keeping its side stays put, one changing side takes the first free slot (0, -20, 20, …).",
+                "Along the side from the Symbol origin, a multiple of 10. Left out: a Pin keeping its side stays put, one changing side takes the first free slot inside the body (0, -20, 20, …).",
               ),
           }),
         )

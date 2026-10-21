@@ -5,6 +5,7 @@ export type ToolIconName =
   | "netlist"
   | "project-code"
   | "wire"
+  | "no-connect"
   | "text"
   | "arrow"
   | "line"
@@ -80,6 +81,9 @@ export function ToolIcon({ name }: { name: ToolIconName }) {
       ) : null}
       {name === "text" ? (
         <path d="M4 5V3h12v2M10 3v14M7 17h6" {...common} />
+      ) : null}
+      {name === "no-connect" ? (
+        <path d="M5 5L15 15M15 5L5 15" {...common} />
       ) : null}
       {name === "arrow" ? (
         <>

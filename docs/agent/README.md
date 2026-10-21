@@ -35,7 +35,7 @@ lifecycle.
   redefine pins.
 - Knowledge cards are evidence aids, not classifiers. Drawing review cannot
   establish electrical correctness without simulation evidence.
-- [Layout lookup](circuit-style-knowledge.md) is served at
+- [Drawing a schematic](circuit-style-knowledge.md) is served at
   `reference/razavi-style` and at the older patterns/routing URIs and Kit
   paths; its canonical entry precedes the aliases so links resolve to it.
 - [RouteGraph](routegraph.md), [local workspaces](local-workspace.md) and

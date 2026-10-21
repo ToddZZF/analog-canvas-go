@@ -94,13 +94,28 @@ export function applyRouteTopologyEdit(
           `Junction already exists: ${edit.junctionId}`,
         );
       }
+      const contact =
+        edit.contactAnchor && resolver
+          ? resolveEndpointConnection(draft, resolver, {
+              kind: "terminal",
+              ...edit.contactAnchor,
+            })
+          : null;
+      if (edit.contactAnchor && !contact) {
+        return rejectAt(
+          "EDIT_PRECONDITION",
+          "A junction contact anchor requires a resolved terminal",
+        );
+      }
       draft.junctions.push(
         JunctionSchema.parse({
           id: edit.junctionId,
           netId: edit.netId,
-          position: edit.position,
+          position: contact?.gridLanding ?? edit.position,
           role: edit.role ?? "branch",
           ...(edit.documentStyle ? { documentStyle: edit.documentStyle } : {}),
+          ...(edit.styleOverride ? { styleOverride: edit.styleOverride } : {}),
+          ...(edit.contactAnchor ? { contactAnchor: edit.contactAnchor } : {}),
         }),
       );
       changedObjectIds.add(edit.junctionId);

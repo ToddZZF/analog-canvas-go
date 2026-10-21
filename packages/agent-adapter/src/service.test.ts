@@ -1186,7 +1186,10 @@ describe("current Agent Circuit API service", () => {
           edits: [
             {
               kind: "set_cell_symbol_presentation",
-              presentation: { minimumBodySize: { width: 120, height: 80 } },
+              presentation: {
+                minimumBodySize: { width: 120, height: 80 },
+                bodyBounds: { left: -60, right: 100, top: -40, bottom: 60 },
+              },
             },
           ],
         },
@@ -1200,6 +1203,7 @@ describe("current Agent Circuit API service", () => {
     });
     expect(fixture.getDocument().presentation.cellSymbol).toEqual({
       minimumBodySize: { width: 120, height: 80 },
+      bodyBounds: { left: -60, right: 100, top: -40, bottom: 60 },
     });
   });
 

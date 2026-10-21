@@ -7,6 +7,7 @@ import {
   builtInModelContract,
   callsIdealComparatorBody,
   idealComparatorBodyFor,
+  idealComparatorModelTarget,
   type BuiltInSubcircuitDescriptor,
   type InputSign,
 } from "@icm/devices";
@@ -64,7 +65,10 @@ export function builtInBlockCallTarget(
       ? binding.name
       : descriptor.target;
   if (callsIdealComparatorBody(descriptor, target))
-    return idealComparatorBodyFor(instance.netlist?.parameters);
+    return idealComparatorBodyFor(
+      instance.netlist?.parameters,
+      idealComparatorModelTarget(target),
+    );
   if (
     descriptor.target !== ADDER_TARGET ||
     target.toLowerCase() !== ADDER_TARGET ||

@@ -7,6 +7,38 @@ const input = (path: string, text: string) => ({
   bytes: new TextEncoder().encode(text),
 });
 
+it.each([
+  ["PNP", "pnp", "Q1 c b e device"],
+  ["NPN", "npn", "Q1 c b e device"],
+  ["D", "diode", "D1 a k device"],
+])(
+  "imports %s model cards with attached or separated parentheses",
+  async (type, symbol, card) => {
+    for (const tail of [
+      `${type}(IS=1e-16)`,
+      `${type} (IS=1e-16)`,
+      `${type} IS=1e-16`,
+      type,
+    ]) {
+      const text = `* device\n.model device ${tail}\n${card}\n.end\n`;
+      const result = await importSpiceSources(
+        [input("device.sp", text)],
+        "device.sp",
+      );
+      expect(
+        result.diagnostics.filter((d) => d.severity === "error"),
+        tail,
+      ).toEqual([]);
+      expect(
+        result
+          .project!.documents.flatMap((d) => d.instances)
+          .some((i) => i.symbolId === symbol),
+        tail,
+      ).toBe(true);
+    }
+  },
+);
+
 it("imports SKY130's drain-extended devices as the Extended Devices DMOS", async () => {
   const text = [
     "* high-voltage devices",
@@ -149,6 +181,19 @@ it("says which .model card a device of unknown type needs", async () => {
       ?.message,
   ).toBe(
     'M1 uses model mystery, which no .model card declares, so its device type is unknown. Add ".model mystery nmos" or ".model mystery pmos".',
+  );
+});
+
+it("suggests native Spectre model statements for an undeclared model in SCS", async () => {
+  const result = await importSpiceSources(
+    [input("bipolar.scs", "* converted SCS\nQ1 c b e mystery\n.end\n")],
+    "bipolar.scs",
+  );
+  expect(
+    result.diagnostics.find((d) => d.code === "SPICE_IMPORT_UNSUPPORTED_SYMBOL")
+      ?.message,
+  ).toBe(
+    'Q1 uses model mystery, which no model statement declares, so its device type is unknown. Add "model mystery bjt type=npn" or "model mystery bjt type=pnp".',
   );
 });
 

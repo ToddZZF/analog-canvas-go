@@ -13,6 +13,7 @@ import { createRnlExport, type RnlExport } from "@icm/rnl";
 import { RNL_INTRO_URL } from "../../components/site-resource-links";
 import type { NativeExternalTarget } from "../../hosts/native-external-links";
 import { StaticCodeView } from "../project-code/static-code-view";
+import { OpenRnlViewerLink } from "./open-rnl-viewer-link";
 import {
   loadRnlRuntime,
   type RnlRuntime,
@@ -148,11 +149,16 @@ export function RnlNetlistView({
       }),
     [project, format, namingProfile, rootDocumentId],
   );
-  const [state, setState] = useState<RnlWriteState>({ status: "writing" });
+  const [result, setResult] = useState<{
+    exported: RnlExport;
+    state: RnlWriteState;
+  }>({ exported, state: { status: "writing" } });
+  const state: RnlWriteState =
+    result.exported === exported ? result.state : { status: "writing" };
   useEffect(() => {
     if (exported.status !== "ready") return;
     let live = true;
-    setState({ status: "writing" });
+    setResult({ exported, state: { status: "writing" } });
     void loadRnlRuntime()
       .then(
         (runtime) => writeRnlExport(exported, runtime),
@@ -165,7 +171,7 @@ export function RnlNetlistView({
         }),
       )
       .then((next) => {
-        if (live) setState(next);
+        if (live) setResult({ exported, state: next });
       });
     return () => {
       live = false;
@@ -182,6 +188,18 @@ export function RnlNetlistView({
           externalLinksEnabled={externalLinksEnabled}
           onOpenExternalLink={onOpenExternalLink}
         />
+        {externalLinksEnabled !== false ? (
+          <OpenRnlViewerLink
+            file={
+              exported.status === "ready" && state.status === "written"
+                ? {
+                    name: format === "spice" ? "circuit.sp" : "circuit.scs",
+                    text,
+                  }
+                : null
+            }
+          />
+        ) : null}
       </p>
       {exported.status === "blocked" ? (
         <p role="alert">RNL cannot write this netlist yet.</p>

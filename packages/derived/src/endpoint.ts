@@ -138,19 +138,34 @@ export function resolveEndpointConnection(
   lookup?: EndpointObjectLookup,
 ): EndpointConnection | null {
   if (endpoint.kind === "junction") {
-    const position = (
+    const junction =
       lookup?.junctionsById.get(endpoint.junctionId) ??
-      document.junctions.find((junction) => junction.id === endpoint.junctionId)
-    )?.position;
-    return position
-      ? {
-          endpoint,
-          contactPoint: position,
-          gridLanding: position,
-          escapePath: [],
-          outward: null,
-        }
+      document.junctions.find(
+        (junction) => junction.id === endpoint.junctionId,
+      );
+    const position = junction?.position;
+    if (!position) return null;
+    const anchor = junction?.contactAnchor
+      ? resolveEndpointConnection(
+          document,
+          resolver,
+          { kind: "terminal", ...junction.contactAnchor },
+          lookup,
+        )
       : null;
+    const contactPoint =
+      anchor && samePoint(position, anchor.gridLanding)
+        ? anchor.contactPoint
+        : position;
+    return {
+      endpoint,
+      contactPoint,
+      gridLanding: position,
+      escapePath: samePoint(contactPoint, position)
+        ? []
+        : [contactPoint, position],
+      outward: null,
+    };
   }
 
   const resolved = resolvedTerminalPin(document, resolver, endpoint, lookup);

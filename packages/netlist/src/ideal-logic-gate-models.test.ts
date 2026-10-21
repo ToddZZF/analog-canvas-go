@@ -18,7 +18,7 @@ describe("ideal logic bodies", () => {
     const logic = builtInSubcircuitDescriptors
       .map((descriptor) => descriptor.target)
       .filter((target) =>
-        /^(inverter|buffer|[a-z]+_gate(_\d)?|d_flip_flop(_\w+)?)$/u.test(
+        /^(inverter|buffer|delay_cell|[a-z]+_gate(_\d)?|d_flip_flop(_\w+)?)$/u.test(
           target,
         ),
       );

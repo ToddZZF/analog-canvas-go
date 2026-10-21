@@ -99,6 +99,7 @@ interface EditorShortcutDependencies {
   saveByHand: ProjectFileLifecycle["saveByHand"];
   setWireOptionsOpen: Dispatch<SetStateAction<boolean>>;
   getCurrentInteractionState: InteractionState["getCurrentState"];
+  handleCellLayoutKeyDown?: (event: KeyboardEvent) => boolean;
   tool: InteractionState["tool"];
   wireSource: InteractionState["wireSource"];
   wirePreviewPoint: InteractionState["wirePreviewPoint"];
@@ -261,6 +262,7 @@ function createEditorShortcutHandler({
   saveByHand,
   setWireOptionsOpen,
   getCurrentInteractionState,
+  handleCellLayoutKeyDown,
   tool,
   wireSource,
   wirePreviewPoint,
@@ -427,6 +429,10 @@ function createEditorShortcutHandler({
         commitPendingNetLabelDraft();
       }
       if (event.target instanceof HTMLElement) event.target.blur();
+      return;
+    }
+    if (!isTypingTarget(event.target) && handleCellLayoutKeyDown?.(event)) {
+      event.preventDefault();
       return;
     }
     const currentInteraction = getCurrentInteractionState();

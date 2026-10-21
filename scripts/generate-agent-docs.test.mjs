@@ -137,7 +137,7 @@ test("every declared Kit destination and resource is emitted; no phantom fallbac
   }
 });
 
-test("layout lookup is self-contained and legacy addresses share its canonical source", async () => {
+test("drawing guide is self-contained and legacy addresses share its canonical source", async () => {
   const ids = [
     "reference/razavi-style",
     "reference/routing",
@@ -148,7 +148,7 @@ test("layout lookup is self-contained and legacy addresses share its canonical s
   assert.equal(
     registry.documents.find((d) => d.source === canonical.source).id,
     canonical.id,
-    "ordinary links must resolve to the canonical layout resource, not an alias",
+    "ordinary links must resolve to the canonical drawing guide, not an alias",
   );
   const { mcpResources } =
     await import("../apps/mcp-server/src/resources.generated.ts");
@@ -158,13 +158,14 @@ test("layout lookup is self-contained and legacy addresses share its canonical s
     (entry) => mcpResources.find((r) => r.uri === entry.uri).text,
   );
   // Kit aliases live at different depths; compare the resolved link targets.
+  // An in-page anchor resolves within its own file at any depth.
   const kitTexts = entries.map((entry) =>
     agentKitFiles
       .find((f) => f.path === entry.kitPath)
-      .content.replace(
-        /\]\(([^)]+)\)/g,
-        (_, href) =>
-          `](${posix.normalize(posix.join(posix.dirname(entry.kitPath), href))})`,
+      .content.replace(/\]\(([^)#][^)]*)\)/g, (_, href) =>
+        /^[a-z][a-z\d+.-]*:/i.test(href)
+          ? `](${href})`
+          : `](${posix.normalize(posix.join(posix.dirname(entry.kitPath), href))})`,
       ),
   );
   for (const [index, entry] of entries.entries()) {

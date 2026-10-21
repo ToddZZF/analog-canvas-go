@@ -29,6 +29,7 @@ import {
 function idealComparatorModel(target: IdealComparatorBody): BehavioralModel {
   const body = idealComparatorBodyContract(target);
   const high = body.readsSupply ? "V(VDD)" : "vhigh";
+  const differential = body.ports.some((port) => port.pinName === "OUT-");
   return {
     name: body.name,
     ports: body.ports.map((port) => port.name),
@@ -36,10 +37,20 @@ function idealComparatorModel(target: IdealComparatorBody): BehavioralModel {
     elements: [
       voltage(
         "Bcmp",
-        "VOUT",
+        differential ? "VOP" : "VOUT",
         "0",
         `vlow+(${high}-vlow)*0.5*(1+tanh((V(VIP)-V(VIN))/vtransition))`,
       ),
+      ...(differential
+        ? [
+            voltage(
+              "Bcmpn",
+              "VON",
+              "0",
+              `vlow+(${high}-vlow)*0.5*(1-tanh((V(VIP)-V(VIN))/vtransition))`,
+            ),
+          ]
+        : []),
     ],
   };
 }

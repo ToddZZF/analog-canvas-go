@@ -23,6 +23,35 @@ function converted(
 }
 
 describe("netlist-crawler structural conversion", () => {
+  it("reads the reviewed native bipolar and diode stand-ins, including arbitrary instance names", () => {
+    const text = converted(
+      "model PNP bjt type=pnp is=1e-16 bf=50 vaf=50\nmodel NPN bjt type=npn is=1e-16 bf=100 vaf=100\nmodel DIODE diode is=1e-14 n=1\np (c b e) PNP m=2\nn (c b e) NPN\nd (a k) DIODE",
+    );
+    expect(text).toContain(".model PNP pnp is=1e-16 bf=50 vaf=50");
+    expect(text).toContain(".model NPN npn is=1e-16 bf=100 vaf=100");
+    expect(text).toContain(".model DIODE d is=1e-14 n=1");
+    expect(text).toContain("Qp c b e PNP m=2");
+    expect(text).toContain("Qn c b e NPN");
+    expect(text).toContain("d a k DIODE");
+  });
+  it.each([
+    "model P bjt type=p",
+    "model P bjt",
+    "model P bjt type=pnp ikf=1",
+    "model D diode bv=10",
+  ])(
+    "rejects native model parameters outside the reviewed stand-in mapping: %s",
+    (text) => {
+      expect(
+        convertNetlist({
+          text,
+          source: "spectre",
+          target: "spice",
+          fragment: true,
+        }).status,
+      ).toBe("blocked");
+    },
+  );
   it.each([
     ".subckt Amp a b\nR1 a b 1k\n.ends Amp\nX1 a b amp",
     ".subckt Amp a b params: GAIN=2\nE1 a b a b {gain}\n.ends Amp",

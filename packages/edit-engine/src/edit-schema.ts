@@ -11,6 +11,7 @@ import {
   SignalFlowParametersSchema,
   InstanceStyleOverrideSchema,
   JunctionRoleSchema,
+  JunctionStyleOverrideSchema,
   LayoutConstraintSchema,
   LayoutGroupSchema,
   MirrorSchema,
@@ -25,6 +26,7 @@ import {
   RotationSchema,
   StableIdSchema,
   StyleOverridesSchema,
+  TerminalRefSchema,
 } from "@icm/model";
 import { z } from "zod";
 
@@ -206,6 +208,12 @@ const SetRouteStyleOverrideEditSchema = z.strictObject({
   routeId: StableIdSchema,
   styleOverride: RouteStyleOverrideSchema.nullable(),
 });
+/** A Junction endpoint, or a terminal whose confirmed contact draws a dot. */
+const SetJunctionStyleOverrideEditSchema = z.strictObject({
+  kind: z.literal("set_junction_style_override"),
+  target: RouteEndpointSchema,
+  styleOverride: JunctionStyleOverrideSchema.nullable(),
+});
 /**
  * Keep a Document style on objects, or release it with `null` so they follow
  * their Document again. Copy writes the kept style; this edit changes it.
@@ -231,6 +239,8 @@ const AddJunctionEditSchema = z.strictObject({
   position: PointSchema,
   role: JunctionRoleSchema.optional(),
   documentStyle: ObjectDocumentStyleSchema.optional(),
+  styleOverride: JunctionStyleOverrideSchema.optional(),
+  contactAnchor: TerminalRefSchema.optional(),
   createNet: z.boolean().optional(),
   split: z
     .strictObject({
@@ -458,6 +468,7 @@ export const SchematicEditSchema = z.discriminatedUnion("kind", [
   SetCellFormalParametersEditSchema,
   SetRoutePathEditSchema,
   SetRouteStyleOverrideEditSchema,
+  SetJunctionStyleOverrideEditSchema,
   SetObjectDocumentStyleEditSchema,
   RouteOrthogonalEditSchema,
   AddJunctionEditSchema,

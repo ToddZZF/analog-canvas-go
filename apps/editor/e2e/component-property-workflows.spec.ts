@@ -27,6 +27,52 @@ import {
 } from "./manual-editor-fixtures.js";
 import { closeSelectionShelf, placedInstance } from "./canvas-fixtures.js";
 
+test("fully differential comparator places four pins and retains its model through polarity edits", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await openPlacedProperties(
+    page,
+    "comparator-differential",
+    { x: 400, y: 250 },
+    "hit-X1",
+  );
+  for (const pin of ["IN+", "IN-", "OUT+", "OUT-"])
+    await expect(page.getByTestId(`terminal-X1-${pin}`)).toHaveCount(1);
+  await expectComponentCodeField(page, "parameters.vhigh", "VDD");
+  await expectComponentCodeField(page, "parameters.vlow", "0");
+  await expectComponentCodeField(page, "parameters.vtransition", "1m");
+  await setComponentCodeField(page, "parameters.vhigh", "2");
+  await expectComponentCodeField(page, "parameters.vhigh", "2");
+  await setComponentCodeField(page, "appearance.inputsSwapped", true);
+  await expectComponentCodeField(page, "appearance.inputsSwapped", true);
+  await setComponentCodeField(page, "appearance.inputPolarity", false);
+  await expectComponentCodeField(page, "appearance.inputPolarity", false);
+  const document: SchematicDocument = await exportedDocument(page);
+  expect(
+    document.instances.find((instance) => instance.reference === "X1"),
+  ).toMatchObject({
+    symbolId: "comparator-differential-unmarked-inputs-swapped",
+    netlist: {
+      binding: {
+        kind: "unresolved-subcircuit",
+        name: "icm_ideal_comparator_differential",
+      },
+      parameters: { vhigh: "2", vlow: "0", vtransition: "1m" },
+    },
+  });
+  expect(
+    document.annotations.some(
+      (annotation) =>
+        annotation.kind === "instance-label" &&
+        annotation.anchor.kind === "object" &&
+        annotation.anchor.objectId === "X1",
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("source Shape controls apply only to controlled sources", async ({
   page,
 }) => {

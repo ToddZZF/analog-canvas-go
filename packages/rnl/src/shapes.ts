@@ -111,7 +111,7 @@ export const dotShape = (center: Point, radius: number): RnlShape => ({
 
 /**
  * An Analog Canvas symbol's artwork as RNL shapes in the symbol's own frame,
- * or null when part of it is an SVG path, which has no RNL shape yet.
+ * or null when it contains an unsupported curved/compound SVG path.
  * Strokes keep the viewer's width: a block's outline is drawn as parts are.
  */
 export function symbolShapes(
@@ -148,8 +148,34 @@ export function symbolShapes(
           ),
         );
         break;
-      case "path":
-        return null;
+      case "path": {
+        // The analog triangles and transfer glyphs use explicit absolute
+        // M/L/Z strokes. Reject the rest rather than approximating curves.
+        const number = "[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?";
+        const pair = `${number}[ ,]+${number}`;
+        if (
+          !new RegExp(
+            `^\\s*M\\s*${pair}(?:\\s*L\\s*${pair})+(?:\\s*Z)?\\s*$`,
+            "u",
+          ).test(primitive.data)
+        )
+          return null;
+        const points = Array.from(
+          primitive.data.matchAll(
+            new RegExp(`[ML]\\s*(${number})[ ,]+(${number})`, "gu"),
+          ),
+          (match) => ({ x: Number(match[1]), y: Number(match[2]) }),
+        );
+        if (
+          points.some(
+            (point) => !Number.isFinite(point.x) || !Number.isFinite(point.y),
+          )
+        )
+          return null;
+        if (/Z\s*$/u.test(primitive.data)) points.push(points[0]!);
+        shapes.push(pathShape(points));
+        break;
+      }
     }
   }
   return shapes;

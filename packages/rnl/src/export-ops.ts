@@ -32,6 +32,7 @@ import {
   type NetlistFormat,
 } from "@icm/netlist";
 import { builtInSymbols, createProjectSymbolResolver } from "@icm/symbols";
+import { subcircuitDescriptor } from "@icm/devices";
 
 import {
   blockSymbols,
@@ -49,6 +50,7 @@ import {
 import { rnlName } from "./rnl-name.js";
 import type { RnlShape } from "./shapes.js";
 import { rnlSymbolFor, terminalOfPin } from "./symbol-map.js";
+import { inlineRnlDefinition } from "./inline-symbols.js";
 import { plainLines, rnlTextLines, type RnlRun } from "./text.js";
 
 /**
@@ -224,6 +226,28 @@ export function rnlExportOps(
     op: "define-symbol",
     ...symbol,
   }));
+  const inline = new Map(
+    project.documents
+      .flatMap((document) => [
+        ...document.instances,
+        ...(document.drafting?.objects ?? []).filter(
+          (object) => object.kind === "floating-symbol",
+        ),
+      ])
+      .flatMap((instance) => {
+        const row = rnlSymbolFor(
+          instance.symbolId,
+          "symbolVariantId" in instance ? instance.symbolVariantId : undefined,
+        );
+        return row?.inline ? [[row.symbol, row] as const] : [];
+      }),
+  );
+  for (const row of inline.values())
+    fileSymbols.push({
+      level: "file",
+      op: "define-symbol",
+      ...inlineRnlDefinition(row),
+    });
   return { ops: [...header, ...fileSymbols, ...ops], diagnostics };
 }
 
@@ -329,6 +353,31 @@ function exportCell(
   const placeOf = new Map<StableId, { object: string; at: RnlPoint }>();
   for (const instance of document.instances) {
     let symbol = rnlSymbolFor(instance.symbolId, instance.symbolVariantId);
+    if (symbol?.inline) {
+      const descriptor = subcircuitDescriptor(
+        instance.symbolId,
+        context.project,
+      );
+      const call = cell.instances.find(
+        (candidate) => candidate.id === instance.id,
+      );
+      if (
+        call &&
+        symbol.pins.some(
+          (pin) =>
+            call.nodes[pin.terminal - 1]?.pinName !==
+            descriptor?.ports.find((port) => port.pinName === pin.acPin)?.name,
+        )
+      ) {
+        report(
+          "error",
+          "RNL_INLINE_INTERFACE_MISMATCH",
+          `${describe(instance)} calls a custom interface with a different terminal order; export plain SPICE/SCS or use a custom block Symbol`,
+          [instance.id],
+        );
+        continue;
+      }
+    }
     const block = symbol
       ? undefined
       : blockTerminals(instance, context.project, context.ir);
@@ -402,7 +451,7 @@ function exportCell(
         `${describe(instance)} is drawn with ${symbol.symbol} from the ${AC_PACKAGE} package, not the standard package`,
         [instance.id],
       );
-    if (symbol) packages.add(symbol.package);
+    if (symbol && !symbol.inline) packages.add(symbol.package);
     const mapped = symbol;
     terminalsOf.set(
       instance.id,
@@ -993,7 +1042,7 @@ function exportTexts(
         drawings.push(object.id);
         continue;
       }
-      context.packages.add(symbol.package);
+      if (!symbol.inline) context.packages.add(symbol.package);
       const orient = composeOrient(turn.orient, symbol.orient);
       ops.push({
         level,

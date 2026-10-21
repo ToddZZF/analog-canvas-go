@@ -481,7 +481,7 @@ describe("Razavi symbol catalog", () => {
         symbol.id,
       ),
     );
-    expect(family).toHaveLength(32);
+    expect(family).toHaveLength(36);
     for (const symbol of family)
       for (const primitive of symbol.primitives) {
         if (primitive.kind !== "path") continue;
@@ -518,7 +518,7 @@ describe("Razavi symbol catalog", () => {
     const family = razaviCatalogSymbols.filter((symbol) =>
       /^(?:opamp|voltage-amplifier|comparator)(?:-|$)/u.test(symbol.id),
     );
-    expect(family).toHaveLength(30);
+    expect(family).toHaveLength(34);
     for (const { id: symbolId } of family) {
       const candidate = requireRazaviCatalogSymbol(symbolId);
       const triangle = candidate.primitives.find(
@@ -670,11 +670,8 @@ describe("Razavi symbol catalog", () => {
         primitive.part?.includes("polarity"),
       );
       expect(marks).toHaveLength(
-        symbol.id.startsWith("comparator-unmarked")
-          ? 0
-          : symbol.id.startsWith("opamp-differential")
-            ? 6
-            : 3,
+        (symbol.id.includes("-unmarked") ? 0 : 3) +
+          (symbol.pins.some((pin) => pin.name === "OUT-") ? 3 : 0),
       );
       const body = symbol.primitives.find(
         (primitive) =>

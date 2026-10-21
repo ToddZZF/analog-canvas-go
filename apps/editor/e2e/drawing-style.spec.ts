@@ -16,6 +16,123 @@ import {
   readComponentCode,
 } from "./manual-editor-fixtures.js";
 import { clickRoute, routeInk, drawWire } from "./canvas-fixtures.js";
+import { createEmptyProject } from "@icm/model";
+import { serializeProject } from "@icm/project-protocol";
+import { inflateSync } from "node:zlib";
+
+function pdfFillColors(bytes: Buffer): number[][] {
+  const raw = bytes.toString("latin1");
+  return [
+    ...raw.matchAll(/<<((?:(?!endobj)[\s\S])*?)>>\s*stream\r?\n/gu),
+  ].flatMap((match) => {
+    const start = match.index + match[0].length;
+    const stream = bytes.subarray(start, raw.indexOf("\nendstream", start));
+    const content = match[1]!.includes("/FlateDecode")
+      ? inflateSync(stream).toString("latin1")
+      : stream.toString("latin1");
+    return [...content.matchAll(/([\d.]+) ([\d.]+) ([\d.]+) rg\b/gu)].map(
+      (match) => match.slice(1).map(Number),
+    );
+  });
+}
+
+test("colors a generated pin-contact dot independently, with undo, reload, SVG, PNG and PDF", async ({
+  page,
+}) => {
+  const project = createEmptyProject("generated-dot", "Generated dot");
+  const document = project.documents[0]!;
+  document.instances.push(
+    {
+      id: "R1",
+      symbolId: "resistor",
+      placement: { position: { x: 100, y: 120 }, rotation: 0, mirror: "none" },
+    },
+    {
+      id: "R2",
+      symbolId: "resistor",
+      placement: { position: { x: 100, y: 80 }, rotation: 180, mirror: "none" },
+    },
+    {
+      id: "R3",
+      symbolId: "resistor",
+      placement: { position: { x: 80, y: 100 }, rotation: 90, mirror: "none" },
+    },
+  );
+  document.nets.push({
+    id: "net",
+    terminals: ["R1", "R2", "R3"].map((instanceId) => ({
+      instanceId,
+      pinName: "1",
+    })),
+  });
+  await page.goto("/editor");
+  await openProjectFile(
+    page,
+    Buffer.from(serializeProject(project)),
+    "generated-dot.icproj.json",
+  );
+  const dot = page.locator('[data-layer="junctions"] circle');
+  await expect(dot).toHaveCount(1);
+  await page.getByTestId("terminal-R1-1").click({ force: true });
+  await openSelectionShelf(page);
+  await editComponentPropertyCode(page, (code) => {
+    code.color = [204, 34, 68];
+  });
+  await expect(dot).toHaveAttribute("fill", "#cc2244");
+  await page.getByTestId("draw-tool-undo").click();
+  await expect(dot).toHaveAttribute("fill", "#000");
+  await page.getByTestId("draw-tool-redo").click();
+  await expect(dot).toHaveAttribute("fill", "#cc2244");
+  const saved = await downloadBytes(page, "File", "Export Project File…");
+  const svg = (await downloadBytes(page, "File", "Export SVG")).toString(
+    "utf8",
+  );
+  expect(svg).toMatch(/<circle[^>]*fill="#cc2244"/u);
+  const png = await downloadBytes(page, "File", "Export PNG");
+  const redPixels = await page.evaluate(
+    async (bytes) => {
+      const image = await createImageBitmap(
+        new Blob([new Uint8Array(bytes)], { type: "image/png" }),
+      );
+      const canvas = globalThis.document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d")!;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, image.width, image.height).data;
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 4)
+        if (
+          pixels[i] === 204 &&
+          pixels[i + 1] === 34 &&
+          pixels[i + 2] === 68 &&
+          pixels[i + 3] === 255
+        )
+          count++;
+      image.close();
+      return count;
+    },
+    [...png],
+  );
+  expect(redPixels).toBeGreaterThan(0);
+  const pdf = await downloadBytes(page, "File", "Export PDF");
+  expect(
+    pdfFillColors(pdf).some(
+      ([r, g, b]) =>
+        Math.abs(r! - 0.8) < 0.001 &&
+        Math.abs(g! - 0.1333) < 0.001 &&
+        Math.abs(b! - 0.2667) < 0.001,
+    ),
+  ).toBe(true);
+  await openProjectFile(page, saved, "colored-dot.icproj.json");
+  await expect(dot).toHaveAttribute("fill", "#cc2244");
+  await page.getByTestId("terminal-R1-1").click({ force: true });
+  await openSelectionShelf(page);
+  await editComponentPropertyCode(page, (code) => {
+    code.color = "auto";
+  });
+  await expect(dot).toHaveAttribute("fill", "#000");
+});
 
 test("styles a wire's colour, line and arrow through property code, with undo, export, reload and Auto, and names it globally in one step", async ({
   page,

@@ -37,6 +37,8 @@ const SOURCE_IDS = [
   "opamp-lettered",
   "comparator",
   "comparator-unmarked",
+  "comparator-differential",
+  "comparator-differential-unmarked",
   "differential-transconductance",
   "opamp-differential",
   "opamp-differential-lettered",
@@ -98,7 +100,7 @@ function swapInputs(source) {
   );
   // A plus and a minus: two strokes and one, in either order. Anything else
   // means the artwork changed shape and the rule above no longer finds it.
-  const expectedMarkCount = source.id === "comparator-unmarked" ? 0 : 3;
+  const expectedMarkCount = source.id.endsWith("-unmarked") ? 0 : 3;
   if (marks.length !== expectedMarkCount) {
     fail(
       `${source.id} has ${marks.length} input polarity strokes, expected ${expectedMarkCount}`,

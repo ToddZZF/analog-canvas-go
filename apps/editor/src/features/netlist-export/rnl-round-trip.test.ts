@@ -15,7 +15,11 @@ import {
   type CircuitProject,
   type Instance,
 } from "@icm/model";
-import { createDesignNetlistExport } from "@icm/netlist";
+import {
+  compareElectricalGraphs,
+  createDesignNetlistExport,
+  projectElectricalGraph,
+} from "@icm/netlist";
 import { parseProject } from "@icm/project-protocol";
 import {
   composeOrient,
@@ -32,15 +36,17 @@ import {
   createProjectSymbolResolver,
   externalSubcircuitSymbolId,
 } from "@icm/symbols";
-import { startCore } from "@rich-netlist/runtime";
+import { createRnlTestCore } from "./rnl-core.test-support";
 
 import { labelCensus, labelDifferences } from "../../../e2e/label-census";
+import { bipolarProject } from "../../../e2e/bipolar-project";
 import { withImportedInstanceDisplays } from "../instance-display/imported-instance-displays";
 import { materializeRazaviProjectBulkConnections } from "../../presentation/razavi-presentation";
 import { createDefaultNetlistExportPreferences } from "./netlist-export-preferences";
 import { prepareNetlistExample } from "./netlist-process";
 import { planRnlImport } from "./rnl-import";
 import type { RnlRuntime } from "./rnl-runtime";
+import { delayCellFixture } from "../../../../../packages/netlist/src/delay-cell-fixture.test-support.js";
 
 /** An arrow end's style, as a drawing object keeps it. */
 type ArrowEnd =
@@ -52,7 +58,7 @@ type ArrowEnd =
   | "open-arrow";
 
 // The rnl runtime's own core, in a worker thread: the editor's write and read.
-const core = startCore();
+const core = await createRnlTestCore();
 afterAll(() => core.terminate());
 const runtime: RnlRuntime = {
   // As JSON, this editor's readonly points are the runtime's point arrays.
@@ -70,13 +76,159 @@ const example = (name: string): CircuitProject =>
     ),
   );
 
+it.each(["spice", "spectre"] as const)(
+  "round-trips an electrical Delay Cell's body, supply connections and unchanged artwork through %s+RNL",
+  async (format) => {
+    const project = delayCellFixture();
+    const result = await roundTrip(project, format);
+    expect(failures(result)).toEqual([]);
+    const parts = result.project.documents
+      .flatMap((d) => d.instances)
+      .filter((i) => i.symbolId === "delay-cell");
+    expect(parts).toHaveLength(3);
+    expect(parts.every((i) => i.netlist?.parameters.tpd === "100p")).toBe(true);
+    expect(drawingCensus(result.project)).toEqual(drawingCensus(project));
+    const before = projectElectricalGraph(project);
+    const after = projectElectricalGraph(result.project);
+    if (before.status !== "ready" || after.status !== "ready")
+      throw Error("Delay Cell graph was not ready");
+    expect(compareElectricalGraphs(before.graph, after.graph)).toBe("equal");
+  },
+);
+
+describe("RNL round trip of bipolar devices and mirrored labels", () => {
+  it.each(["spice", "spectre"] as const)(
+    "reads every device and label back from %s",
+    async (format) => {
+      const project = bipolarProject();
+      const plan = await roundTrip(project, format);
+      expect(failures(plan)).toEqual([]);
+      expect(drawingCensus(plan.project)).toEqual(drawingCensus(project));
+      const before = projectElectricalGraph(project);
+      const after = projectElectricalGraph(plan.project);
+      expect(before.status).toBe("ready");
+      expect(after.status).toBe("ready");
+      if (before.status === "ready" && after.status === "ready")
+        expect(compareElectricalGraphs(before.graph, after.graph)).toBe(
+          "equal",
+        );
+      expect(
+        labelDifferences(labelCensus(project), labelCensus(plan.project)),
+      ).toEqual([]);
+    },
+  );
+});
+
+async function expectViewerLabels(
+  project: CircuitProject,
+  format: "spice" | "spectre",
+) {
+  const exported = createRnlExport(project, { format });
+  if (exported.status !== "ready") throw new Error("export blocked");
+  const written = await core.write({
+    write: exported.request as unknown as Parameters<
+      typeof core.write
+    >[0]["write"],
+    svg: false,
+    primitives: true,
+  });
+  const path = `circuit.${format === "spice" ? "sp" : "scs"}`;
+  const snapshot = await runtime.snapshot({
+    entry: path,
+    files: { [path]: written.text },
+    dialect: format,
+    parts: { drawing: false, host: true, model: true },
+  });
+  let compared = 0;
+  for (const level of snapshot.levels) {
+    const drawing = written.document.levels.find(
+      (item) => item.title === level.name,
+    );
+    for (const text of level.model?.texts ?? []) {
+      if (!text.written || !text.attach || !text.key) continue;
+      const owner = `${text.attach}::${text.key}`;
+      const primitive = drawing?.primitives?.find(
+        (item) => item.kind === "text" && item.owner === owner,
+      );
+      expect(primitive, owner).toBeDefined();
+      if (primitive?.kind !== "text") throw new Error(`missing text ${owner}`);
+      expect(primitive.anchor, owner).toEqual(text.anchor);
+      expect(primitive.halign, owner).toBe(text.halign);
+      expect(primitive.valign, owner).toBe(text.valign);
+      // Ink can overhang its alignment anchor (italics and scripts). Compare
+      // its box with the same text drawn at the scene point independently of
+      // the owner, rather than assuming an ink edge equals the anchor.
+      const reference = await core.write({
+        write: {
+          ...exported.request,
+          ops: [
+            {
+              op: "add-text",
+              level: level.id,
+              lines: text.lines,
+              at: text.anchor,
+              halign: text.halign,
+              valign: text.valign,
+              rotate: text.rotate,
+              style: { ...text.style, size: primitive.size },
+            },
+          ],
+        } as unknown as Parameters<typeof core.write>[0]["write"],
+        svg: false,
+        primitives: true,
+      });
+      const expected = reference.document.levels
+        .flatMap((item) => item.primitives ?? [])
+        .filter((item) => item.kind === "text");
+      expect(
+        reference.document.diagnostics.filter(
+          (item) => item.severity === "error",
+        ),
+        owner,
+      ).toEqual([]);
+      expect(expected, owner).toHaveLength(1);
+      expect(primitive.bbox, owner).toEqual(expected[0]?.bbox);
+      compared++;
+    }
+  }
+  expect(compared).toBeGreaterThan(0);
+}
+
+describe("viewer labels match the scene positions written by the editor", () => {
+  it.each(["spice", "spectre"] as const)(
+    "draws the mirrored bipolar fixture's labels as written (%s)",
+    async (format) => {
+      await expectViewerLabels(bipolarProject(), format);
+    },
+  );
+  it.each(
+    [
+      "common-source-amplifier",
+      "two-stage-op-amp",
+      "current-mirror-loaded-differential-pair",
+      "fully-differential-two-stage-op-amp",
+      "five-transistor-ota-sky130",
+    ].flatMap((name) =>
+      (["spice", "spectre"] as const).map((format) => [name, format] as const),
+    ),
+  )("draws %s labels as written (%s)", async (name, format) => {
+    await expectViewerLabels(
+      prepareNetlistExample(
+        example(name),
+        createDefaultNetlistExportPreferences().profiles.abstract,
+      ),
+      format,
+    );
+  });
+});
+
 /** Export as SPICE+RNL, write with the runtime, and import the file it wrote. */
 async function roundTrip(
   project: CircuitProject,
   format: "spice" | "spectre" = "spice",
 ) {
   const exported = createRnlExport(project, { format });
-  if (exported.status !== "ready") throw new Error("export blocked");
+  if (exported.status !== "ready") throw new Error(JSON.stringify(exported));
   const written = await runtime.write({ write: exported.request, svg: false });
   return importRnl(written.text, format);
 }
@@ -807,11 +959,16 @@ function comparator(
     reference: "X1",
     placement: { position: { x: 100, y: 0 }, rotation: 0, mirror: "none" },
     netlist: {
-      binding: { kind: "unresolved-subcircuit", name: IDEAL_COMPARATOR_TARGET },
+      binding: {
+        kind: "unresolved-subcircuit",
+        name: symbolId.startsWith("comparator-differential")
+          ? "icm_ideal_comparator_differential"
+          : IDEAL_COMPARATOR_TARGET,
+      },
       parameters,
     },
   });
-  for (const port of subcircuitDescriptor("comparator")!.ports) {
+  for (const port of subcircuitDescriptor(symbolId)!.ports) {
     const pinName = port.pinName ?? port.supply;
     if (port.supply && !(powered && port.supply === "VDD")) continue;
     const id = `pin-${port.name}`;
@@ -835,8 +992,101 @@ function comparator(
 }
 
 describe("RNL round trip of built-in blocks", () => {
+  it("refuses an inline comparator stencil on a different custom master interface", () => {
+    const project = comparator("comparator-differential", {}, true);
+    const ports = ["VDD", "VSS", "VIP", "VIN", "VOP", "VON"];
+    project.documents[0]!.instances[0]!.netlist!.binding = {
+      kind: "unresolved-subcircuit",
+      name: "custom_cmp",
+    };
+    project.modelSources = [
+      {
+        id: "source",
+        language: "spice",
+        revision: 1,
+        entry: "cmp.sp",
+        dependencies: [],
+        files: [
+          {
+            path: "cmp.sp",
+            text: `.subckt custom_cmp ${ports.join(" ")}\nRLOAD VOP VON 1k\n.ends custom_cmp\n`,
+          },
+        ],
+      },
+    ];
+    project.externalSubcircuitDefinitions = [
+      {
+        id: "custom-cmp",
+        name: "custom_cmp",
+        interfaceStatus: "declared",
+        terminals: ports.map((name) => ({
+          id: name,
+          name,
+          direction: "inout" as const,
+        })),
+        formalParameters: [],
+        implementation: {
+          kind: "source",
+          sourceId: "source",
+          entry: "custom_cmp",
+        },
+      },
+    ];
+    const result = createRnlExport(project, { format: "spice" });
+    expect(result.status).toBe("blocked");
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ code: "RNL_INLINE_INTERFACE_MISMATCH" }),
+    );
+  });
+  it.each(["missing primitive", "linewidth", "linestyle", "fill"])(
+    "does not recognize a local comparator stencil with edited %s",
+    async (edit) => {
+      const project = comparator(
+        "comparator-differential-inputs-swapped",
+        { vhigh: "1" },
+        false,
+      );
+      const exported = createRnlExport(project, { format: "spice" });
+      if (exported.status !== "ready") throw Error(JSON.stringify(exported));
+      const stencil = exported.request.ops.find(
+        (op) => op.op === "define-symbol",
+      );
+      if (!stencil || stencil.op !== "define-symbol")
+        throw Error("No inline stencil");
+      if (edit === "missing primitive") stencil.prims.pop();
+      else if (edit === "fill") {
+        const triangle = stencil.prims.find(
+          (primitive) => primitive.points.length === 4,
+        )!;
+        triangle.params = { ...triangle.params, fill: "linecolor" };
+      } else {
+        const lead = stencil.prims[0]!;
+        lead.style = {
+          ...lead.style,
+          ...(edit === "linewidth" ? { linewidth: 12 } : { linestyle: "none" }),
+        };
+      }
+      const written = await runtime.write({
+        write: exported.request,
+        svg: false,
+      });
+      const plan = await importRnl(written.text, "spice");
+      expect(plan.diagnostics).toContainEqual(
+        expect.objectContaining({ code: "RNL_IMPORT_UNMAPPED_SYMBOL" }),
+      );
+    },
+  );
   it.each(
-    (["comparator", "comparator-unmarked"] as const).flatMap((symbolId) =>
+    (
+      [
+        "comparator",
+        "comparator-unmarked",
+        "comparator-differential",
+        "comparator-differential-inputs-swapped",
+        "comparator-differential-unmarked",
+        "comparator-differential-unmarked-inputs-swapped",
+      ] as const
+    ).flatMap((symbolId) =>
       (
         [
           ["icm_ideal_comparator", { vhigh: "1" }, false],
@@ -844,7 +1094,17 @@ describe("RNL round trip of built-in blocks", () => {
         ] as const
       ).map(
         ([body, parameters, powered]) =>
-          [symbolId, body, parameters, powered] as const,
+          [
+            symbolId,
+            symbolId.startsWith("comparator-differential")
+              ? body.replace(
+                  "icm_ideal_comparator",
+                  "icm_ideal_comparator_differential",
+                )
+              : body,
+            parameters,
+            powered,
+          ] as const,
       ),
     ),
   )(

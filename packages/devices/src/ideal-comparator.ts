@@ -24,6 +24,12 @@ export const SUPPLY_HIGH_LEVEL = "VDD";
 /** The body a comparator whose high level is its own VDD calls. */
 export const IDEAL_COMPARATOR_SUPPLY_TARGET = "icm_ideal_comparator_vdd";
 
+/** Complementary-output extension; the existing single-ended bodies stay stable. */
+export const DIFFERENTIAL_COMPARATOR_TARGET =
+  "icm_ideal_comparator_differential";
+const DIFFERENTIAL_COMPARATOR_SUPPLY_TARGET =
+  "icm_ideal_comparator_differential_vdd";
+
 /**
  * The ideal comparator's bodies, each a name it reserves: the numeric body a
  * comparator with a number in `vhigh` calls, exactly as before VDD was a
@@ -32,6 +38,8 @@ export const IDEAL_COMPARATOR_SUPPLY_TARGET = "icm_ideal_comparator_vdd";
 export const IDEAL_COMPARATOR_BODIES = [
   IDEAL_COMPARATOR_TARGET,
   IDEAL_COMPARATOR_SUPPLY_TARGET,
+  DIFFERENTIAL_COMPARATOR_TARGET,
+  DIFFERENTIAL_COMPARATOR_SUPPLY_TARGET,
 ] as const;
 
 export type IdealComparatorBody = (typeof IDEAL_COMPARATOR_BODIES)[number];
@@ -48,7 +56,28 @@ export function callsIdealComparatorBody(
   descriptor: Pick<BuiltInSubcircuitDescriptor, "target">,
   target: string,
 ): target is IdealComparatorBody {
-  return descriptor.target === "comparator" && isIdealComparatorBody(target);
+  return (
+    isIdealComparatorBody(target) &&
+    descriptor.target ===
+      (idealComparatorModelTarget(target) === IDEAL_COMPARATOR_TARGET
+        ? "comparator"
+        : DIFFERENTIAL_COMPARATOR_TARGET)
+  );
+}
+
+/** The parameter contract shared by a comparator's numeric and supply bodies. */
+export function idealComparatorModelTarget(body: IdealComparatorBody): string {
+  return body === DIFFERENTIAL_COMPARATOR_TARGET ||
+    body === DIFFERENTIAL_COMPARATOR_SUPPLY_TARGET
+    ? DIFFERENTIAL_COMPARATOR_TARGET
+    : IDEAL_COMPARATOR_TARGET;
+}
+
+export function idealComparatorReadsSupply(body: IdealComparatorBody): boolean {
+  return (
+    body === IDEAL_COMPARATOR_SUPPLY_TARGET ||
+    body === DIFFERENTIAL_COMPARATOR_SUPPLY_TARGET
+  );
 }
 
 /** Whether a high level, as typed, is the comparator's own VDD. */
@@ -64,13 +93,19 @@ export function isSupplyHighLevel(value: string): boolean {
  */
 export function idealComparatorBodyFor(
   parameters: Readonly<Record<string, string>> | undefined,
+  target: string = IDEAL_COMPARATOR_TARGET,
 ): IdealComparatorBody {
   const high = Object.entries(parameters ?? {}).find(
     ([name]) => name.toLowerCase() === HIGH_LEVEL_PARAMETER,
   )?.[1];
-  return high === undefined || isSupplyHighLevel(high)
-    ? IDEAL_COMPARATOR_SUPPLY_TARGET
-    : IDEAL_COMPARATOR_TARGET;
+  const supply = high === undefined || isSupplyHighLevel(high);
+  return target === DIFFERENTIAL_COMPARATOR_TARGET
+    ? supply
+      ? DIFFERENTIAL_COMPARATOR_SUPPLY_TARGET
+      : DIFFERENTIAL_COMPARATOR_TARGET
+    : supply
+      ? IDEAL_COMPARATOR_SUPPLY_TARGET
+      : IDEAL_COMPARATOR_TARGET;
 }
 
 /**
@@ -85,6 +120,6 @@ export function idealComparatorBodyPorts(
   return ports.filter(
     (port) =>
       !port.supply ||
-      (body === IDEAL_COMPARATOR_SUPPLY_TARGET && port.supply === "VDD"),
+      (idealComparatorReadsSupply(body) && port.supply === "VDD"),
   );
 }

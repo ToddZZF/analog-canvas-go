@@ -149,7 +149,7 @@ export function instanceParameterContract(
   if (model)
     return {
       definitions: model.parameters,
-      open: model.family !== "comparator",
+      open: model.family !== "comparator" && model.implementation !== "delay",
       model,
     };
   if (binding?.kind === "unresolved-subcircuit")

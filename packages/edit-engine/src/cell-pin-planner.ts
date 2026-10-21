@@ -69,9 +69,7 @@ function supplyEdgePlacement(
     {
       kind: "set_cell_symbol_presentation",
       presentation: {
-        ...(current?.minimumBodySize
-          ? { minimumBodySize: current.minimumBodySize }
-          : {}),
+        ...current,
         pinPlacements: placements,
       },
     },

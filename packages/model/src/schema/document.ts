@@ -1,4 +1,6 @@
 import { richTextPresentsIdentifier } from "../identifier-text.js";
+import { cellSymbolPinContainmentProblems } from "../cell-symbol-layout.js";
+import { projectCellInterface } from "../cell-interface-projection.js";
 import { z } from "zod";
 
 import { StableIdSchema } from "./common.js";
@@ -316,6 +318,15 @@ export const SchematicDocumentSchema = SchematicDocumentBaseSchema.superRefine(
           path: ["presentation", "cellSymbol"],
         });
       } else {
+        for (const message of cellSymbolPinContainmentProblems(
+          projectCellInterface(document.netlist).ports,
+          cellSymbol,
+        ))
+          context.addIssue({
+            code: "custom",
+            message,
+            path: ["presentation", "cellSymbol"],
+          });
         const terminalIds = new Set(
           document.netlist.terminals.map((terminal) => terminal.id),
         );
@@ -764,6 +775,24 @@ export const SchematicDocumentSchema = SchematicDocumentBaseSchema.superRefine(
     }
 
     for (const [junctionIndex, junction] of document.junctions.entries()) {
+      if (
+        junction.contactAnchor &&
+        !document.nets.some(
+          (net) =>
+            net.id === junction.netId &&
+            net.terminals.some(
+              (terminal) =>
+                terminal.instanceId === junction.contactAnchor!.instanceId &&
+                terminal.pinName === junction.contactAnchor!.pinName,
+            ),
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "A junction contact anchor must name a terminal on its Net",
+          path: ["junctions", junctionIndex, "contactAnchor"],
+        });
+      }
       if (!netIds.has(junction.netId)) {
         context.addIssue({
           code: "custom",

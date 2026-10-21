@@ -1,6 +1,7 @@
 import { canonicalPortTextDocument, createRoutePath } from "@icm/model";
 import { describe, expect, it } from "vitest";
 import { createDesignNetlistExport } from "@icm/netlist";
+import { parseProject, serializeProject } from "@icm/project-protocol";
 
 import { createEmptyDocument, createEmptyProject } from "@icm/model";
 import type { Annotation, RichTextDocument } from "@icm/model";
@@ -533,6 +534,40 @@ describe("a Library gate or flip-flop takes a Cell of its Project (#1450, #1689)
     ).toEqual(["nor2"]);
   });
 
+  it("binds a Delay Cell to A/Y transistor Cell pins and restores its formula parameters", () => {
+    const project = gateProject();
+    const instance = gate(project);
+    instance.symbolId = "delay-cell";
+    instance.netlist = {
+      binding: { kind: "unresolved-subcircuit", name: "delay_cell" },
+      parameters: { tpd: "100p", vt: "10m" },
+    };
+    project.documents[0]!.nets = project.documents[0]!.nets.filter(
+      (net) => net.id !== "net-b",
+    );
+    addCell(project, "delay_cmos", "delay_cmos", ["a", "y", "VDD", "VSS"]);
+    expect(
+      gateCellTargets(project, project.topDocumentId, "delay-cell").map(
+        (cell) => cell.id,
+      ),
+    ).toEqual(["delay_cmos"]);
+    const bound = bind(project, "delay_cmos");
+    expect(gate(bound)).toMatchObject({
+      symbolId: "delay-cell",
+      netlist: {
+        binding: { kind: "subcircuit", childDocumentId: "delay_cmos" },
+        parameters: {},
+      },
+    });
+    expect(pinsOf(bound)).toEqual(["A", "Y", "VDD"]);
+    const restored = parseProject(serializeProject(bound));
+    expect(gate(restored)).toEqual(gate(bound));
+    expect(gate(bind(restored, "")).netlist).toEqual({
+      binding: { kind: "unresolved-subcircuit", name: "delay_cell" },
+      parameters: { vt: "10m", tpd: "10p" },
+    });
+  });
+
   it("refuses the Cell the gate is drawn in", () => {
     const project = gateProject();
     const cell = addCell(project, "nor2", "nor2", ["A", "B", "Y"]);
@@ -550,6 +585,34 @@ describe("a Library gate or flip-flop takes a Cell of its Project (#1450, #1689)
       planSetDeviceModelTarget(project, "nor2", "X9", "nor2"),
     ).toThrow("X9 is drawn in Cell nor2, which cannot call itself");
     expect(gateCellTargets(project, "nor2", "nor-gate")).toEqual([]);
+  });
+
+  it("clears Cell-owned Delay overrides even when a formal has the same name as a formula parameter", () => {
+    const project = gateProject();
+    gate(project).symbolId = "delay-cell";
+    gate(project).netlist = {
+      binding: { kind: "unresolved-subcircuit", name: "delay_cell" },
+      parameters: { vt: "10m", tpd: "100p" },
+    };
+    project.documents[0]!.nets = project.documents[0]!.nets.filter(
+      (net) => net.id !== "net-b",
+    );
+    const cell = addCell(project, "delay_cmos", "delay_cmos", [
+      "A",
+      "Y",
+      "VDD",
+      "VSS",
+    ]);
+    cell.netlist!.formalParameters = [
+      { name: "cap", defaultValue: "100f" },
+      { name: "tpd", defaultValue: "0" },
+    ];
+    const bound = bind(project, "delay_cmos");
+    gate(bound).netlist!.parameters = { cap: "200f", tpd: "0" };
+    expect(gate(bind(bound, "")).netlist).toEqual({
+      binding: { kind: "unresolved-subcircuit", name: "delay_cell" },
+      parameters: { vt: "10m", tpd: "10p" },
+    });
   });
 
   it("clears the gate's VDD Net where the Cell takes its supplies globally", () => {

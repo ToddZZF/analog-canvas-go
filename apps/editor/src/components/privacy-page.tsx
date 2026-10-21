@@ -13,7 +13,7 @@ import {
 } from "./site-resource-links";
 
 /** When the notice last changed; update it with the text. */
-export const PRIVACY_UPDATED = "10 October 2026";
+export const PRIVACY_UPDATED = "21 October 2026";
 
 /**
  * Every cookie the site sets. All but `canvas_vid` belong to a feature you
@@ -243,6 +243,17 @@ export function PrivacyPage() {
             opened it.
           </li>
           <li>
+            <strong>Bulk collection</strong>: the Gallery&rsquo;s lists hold a
+            few circuits the site never shows, which only a program reading the
+            Gallery in bulk opens. An account that opens one is blocked from the
+            Gallery. The site keeps a record of it (email address, display name
+            and sign-in method, with the time, the IP address, country and
+            browser identification of that request) and emails it to the
+            site&rsquo;s operator. The record is kept, also after the account is
+            deleted, as evidence for enforcing the usage policy. Write to{" "}
+            {contact} if you think a block is a mistake.
+          </li>
+          <li>
             <strong>Backups</strong> of the Gallery and Cloud Projects, with the
             account details above, are kept on GitHub. The people who help
             maintain the site can read them.
@@ -413,10 +424,11 @@ export function PrivacyPage() {
           <strong>Delete account…</strong>, then type your name to confirm. This
           at once deletes the account and everything kept for it: your Cloud
           Projects, the circuits you published with their history, the
-          components you shared, and your likes. It also unlinks your
-          AnalogArena Votes from you, as described above. Export anything you
-          want to keep first. Drawings stored only in your browser are not
-          affected. Earlier backups keep their copies.
+          components you shared, and your likes, but not a record of a block for
+          bulk collection (see above). It also unlinks your AnalogArena Votes
+          from you, as described above. Export anything you want to keep first.
+          Drawings stored only in your browser are not affected. Earlier backups
+          keep their copies.
         </p>
         <p>
           You may also ask what data the site keeps about you, have it corrected

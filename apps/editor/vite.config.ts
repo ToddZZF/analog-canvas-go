@@ -11,6 +11,7 @@ import { localSimulation } from "./dev/local-simulation.js";
 import { localReplica } from "./dev/local-replica";
 import { editorPreload } from "./build/editor-preload";
 import { galleryEarlyFetch } from "./build/gallery-early-fetch";
+import { lockedCanvasPackage } from "./build/rnl-canvas-package";
 
 function isolateDevDependencyCache(): Plugin {
   return {
@@ -66,6 +67,7 @@ export default defineConfig({
   // and WebAssembly; serve it as the package ships it.
   optimizeDeps: { exclude: ["@rich-netlist/runtime"] },
   plugins: [
+    lockedCanvasPackage(),
     isolateDevDependencyCache(),
     react(),
     localAgentRelay(),

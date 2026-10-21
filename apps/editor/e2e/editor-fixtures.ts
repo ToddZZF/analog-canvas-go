@@ -195,6 +195,7 @@ export async function clickNetlistWorkflowCommand(
 
 export type DrawTool =
   | "wire"
+  | "no-connect"
   | "text"
   | "arrow"
   | "line"

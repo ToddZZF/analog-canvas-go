@@ -1,4 +1,5 @@
 import type { CanvasHit, CanvasHitKind } from "./canvas-hit-resolver";
+import type { RouteEndpoint } from "@icm/model";
 
 /**
  * Who owns one press on the canvas.
@@ -40,6 +41,8 @@ export interface PointerDownFacts {
   readonly handleAtPoint: boolean;
   /** The ranked, Alt-cycled hit, or null where nothing claims the point. */
   readonly hit: CanvasHit | null;
+  /** A visible generated dot has a terminal identity before it owns a Junction. */
+  readonly junctionDotEndpoint?: RouteEndpoint | null;
   /** The hit belongs to a selection of more than one object. */
   readonly compositeSelectionOwnsHit: boolean;
   /** That composite selection has something a move could preview. */
@@ -82,7 +85,8 @@ export type PointerDownAction =
     }
   | { readonly kind: "route-pointer-down"; readonly routeId: string }
   | { readonly kind: "begin-drafting-drag"; readonly draftingId: string }
-  | { readonly kind: "select-junction"; readonly junctionId: string };
+  | { readonly kind: "select-junction"; readonly junctionId: string }
+  | { readonly kind: "select-endpoint"; readonly endpoint: RouteEndpoint };
 
 /** Kinds a composite selection can carry as one body. */
 const COMPOSITE_KINDS: readonly CanvasHitKind[] = [
@@ -145,7 +149,13 @@ export function resolvePointerDownAction(
   if (facts.handleAtPoint) return { kind: "handle-passthrough" };
 
   const hit = facts.hit;
-  if (!hit) return { kind: "ignore", reason: "no hit under the pointer" };
+  if (!hit) {
+    return facts.junctionDotEndpoint &&
+      !facts.controlPickMode &&
+      !facts.simulationPickMode
+      ? { kind: "select-endpoint", endpoint: facts.junctionDotEndpoint }
+      : { kind: "ignore", reason: "no hit under the pointer" };
+  }
   if (hit.kind === "handle") return { kind: "handle-passthrough" };
 
   if (facts.controlPickMode === "net") {
@@ -215,6 +225,10 @@ export function resolvePointerDownAction(
       return { kind: "begin-visual-selection-move" };
     }
     // Nothing to preview: fall through and let the hit answer for itself.
+  }
+
+  if (facts.junctionDotEndpoint) {
+    return { kind: "select-endpoint", endpoint: facts.junctionDotEndpoint };
   }
 
   switch (hit.kind) {

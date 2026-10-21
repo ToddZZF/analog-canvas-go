@@ -20,7 +20,11 @@ describe("built-in model registration", () => {
       expect(
         model!.ports.map((port) => port.name),
         descriptor.symbolId,
-      ).toEqual(descriptor.ports.map((port) => port.name));
+      ).toEqual(
+        descriptor.ports
+          .filter((port) => model!.family !== "comparator" || !port.supply)
+          .map((port) => port.name),
+      );
     }
     expect(
       new Set(builtInModelContracts.map((model) => model.target)).size,
@@ -43,12 +47,7 @@ describe("built-in model registration", () => {
   });
 
   it("does not fabricate an implementation for custom or drawing-only targets", () => {
-    for (const target of [
-      "custom_amplifier",
-      "delay_cell",
-      "constructor",
-      "__proto__",
-    ])
+    for (const target of ["custom_amplifier", "constructor", "__proto__"])
       expect(builtInModelContract(target), target).toBeUndefined();
   });
 

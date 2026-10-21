@@ -110,7 +110,7 @@ describe("selection context actions", () => {
 
   it.each([
     ["unresolved", null, "Unconnected", "Choose a net"],
-    ["no-connect", null, "No Connect", "Intentionally left unconnected"],
+    ["no-connect", null, "NoConn", "Intentionally left unconnected"],
     ["cell-default", "VDD", "VDD", "Cell default"],
     ["supply-default", "0", "0", "Supply default"],
     ["instance-override", "VB", "VB", "Instance override"],
@@ -222,7 +222,8 @@ describe("selection context actions", () => {
         onDeleteJunction={vi.fn()}
       />,
     );
-    expect(markup).toContain("Mark No Connect");
+    expect(markup).toContain(">Mark NoConn</button>");
+    expect(markup).toContain('title="Mark No Connect"');
     expect(markup).toContain("disabled");
     expect(markup).toContain("Disconnect this endpoint");
   });

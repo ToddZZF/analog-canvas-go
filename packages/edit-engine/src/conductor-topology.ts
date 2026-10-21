@@ -170,6 +170,9 @@ function endpointAtRouteSide(
 
 function protectedObjectIds(document: SchematicDocument): Set<string> {
   return new Set([
+    ...document.junctions.flatMap((junction) =>
+      junction.styleOverride?.color ? [junction.id] : [],
+    ),
     ...document.annotations.flatMap((annotation) =>
       annotation.anchor.kind === "object" ? [annotation.anchor.objectId] : [],
     ),

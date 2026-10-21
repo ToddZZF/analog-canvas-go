@@ -128,9 +128,13 @@ annotations and unlocked layout references.
 - Rectangle/circle drafting may override border and fill; `layer` is
   background (below circuit) or foreground (default); `zIndex` orders within
   a plane.
-- `presentation.cellSymbol` (optional): minimum body size and unique
-  `terminalId`-keyed side/offset placements (existing terminals, one per
-  slot); the resolver derives block and anchors. While no parent has placed
+- `presentation.cellSymbol` (optional): legacy minimum size, optional explicit
+  `bodyBounds`, and unique `terminalId`-keyed side/offset placements (existing
+  terminals, one per slot). Explicit edges use the 10-unit grid, span at least
+  20 units per axis and contain every pin at least 10 units from a corner;
+  offsets are relative to the fixed Symbol origin. Explicit bodies do not fit
+  themselves to text. Absent bounds retain the previous derived geometry.
+  The resolver derives block and anchors. While no parent has placed
   the Cell, new supply Pins (VDD Power, or named like VDD/VCC/VSS/GND) get a
   top/bottom placement and unplaced Pins sit on the side their Port is drawn
   (top-to-bottom order; middle stays automatic), sized so names clear; the

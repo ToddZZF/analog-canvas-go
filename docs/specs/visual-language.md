@@ -49,6 +49,16 @@ rendering, measurement and hit geometry. A Junction without one, or a derived
 dot, draws like the objects it joins when they all share one style. Changing
 Document overrides leaves kept styles alone.
 
+A Junction's optional `styleOverride.color` overrides only its dot. Without it,
+one shared incident Wire color wins; mixed or absent Wire colors use the contact's
+foreground. Setting a generated terminal-contact dot's color materializes one
+stable Junction in the same transaction, preserving the contact's shared kept
+style; Auto clears the override. Color never
+creates a visible dot or changes connectivity. Canvas and SVG/PNG/PDF share this
+resolution. Save/reload, undo/redo and copy/transform preserve the override.
+The [workflow test](../../apps/editor/src/features/clipboard/junction-color-workflow.test.ts)
+and [browser flow](../../apps/editor/e2e/drawing-style.spec.ts) cover this lifecycle.
+
 ## Text
 
 - Instance text comes only from annotations and their bindings, never IDs;

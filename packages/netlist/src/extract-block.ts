@@ -5,7 +5,7 @@ import type { Instance, SchematicDocument } from "@icm/model";
 import {
   ADDER_SIGNED_INPUTS,
   ADDER_TARGET,
-  IDEAL_COMPARATOR_SUPPLY_TARGET,
+  idealComparatorReadsSupply,
   OPAMP_HIGH_LIMIT,
   OPAMP_LIMIT_SUPPLIES,
   OPAMP_LOW_LIMIT,
@@ -99,6 +99,31 @@ export function extractBuiltInSubcircuitInstance(
     binding?.kind === "unresolved-subcircuit" &&
     binding.name.toLowerCase() !== definition.target;
   const ownDefinition = projectNames.has(target.toLowerCase());
+  if (target.toLowerCase() === "delay_cell" && !ownDefinition) {
+    const seen = new Set<string>();
+    for (const [name, value] of Object.entries(netlist?.parameters ?? {})) {
+      const folded = name.toLowerCase();
+      const parsed = parseSpiceNumber(value.trim());
+      if (
+        seen.has(folded) ||
+        !["tpd", "vt"].includes(folded) ||
+        !parsed ||
+        !Number.isFinite(parsed.value) ||
+        parsed.value <= 0
+      ) {
+        diagnostic(
+          diagnostics,
+          document.id,
+          "INVALID_DELAY_CELL_PARAMETER",
+          `Delay Cell ${reference} accepts unique numeric tpd and vt > 0; received ${name}=${value}`,
+          [instance.id],
+          "error",
+          name,
+        );
+      }
+      seen.add(folded);
+    }
+  }
   if (
     adderSigns.some((input) => input.sign === "-") &&
     (retargeted || ownDefinition)
@@ -315,7 +340,7 @@ export function extractBuiltInSubcircuitInstance(
     parameters: (idealComparator
       ? parameters.filter(
           ([name]) =>
-            target !== IDEAL_COMPARATOR_SUPPLY_TARGET ||
+            !idealComparatorReadsSupply(target) ||
             name.toLowerCase() !== HIGH_LEVEL_PARAMETER,
         )
       : parameters

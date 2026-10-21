@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { HexColorSchema, PointSchema, StableIdSchema } from "./common.js";
 import { ObjectDocumentStyleSchema } from "./presentation.js";
+import { TerminalRefSchema } from "./instance.js";
 
 export const RouteEndpointSchema = z.discriminatedUnion("kind", [
   z.strictObject({
@@ -84,7 +85,11 @@ export const JunctionRoleSchema = z.enum([
   "branch",
   "label-anchor",
   "route-anchor",
+  "style-anchor",
 ]);
+export const JunctionStyleOverrideSchema = z.strictObject({
+  color: HexColorSchema.optional(),
+});
 export const JunctionSchema = z.strictObject({
   id: StableIdSchema,
   netId: StableIdSchema,
@@ -92,6 +97,10 @@ export const JunctionSchema = z.strictObject({
   // Omitted role preserves the legacy branch-anchor topology. Visible dots are
   // derived from contact directions rather than guaranteed by this role.
   role: JunctionRoleSchema.optional(),
+  /** Omission inherits the confirmed contact's incident Wire colors. */
+  styleOverride: JunctionStyleOverrideSchema.optional(),
+  /** Exact artwork contact for a generated dot; position remains its grid landing. */
+  contactAnchor: TerminalRefSchema.optional(),
   /** The Document style this Junction keeps from a copy's source drawing. */
   documentStyle: ObjectDocumentStyleSchema.optional(),
 });

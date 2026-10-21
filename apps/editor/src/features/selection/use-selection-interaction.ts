@@ -1059,18 +1059,46 @@ export function useSelectionInteraction(
       }
       return;
     }
-    if (options.selectedEndpointNetId) {
+    markEndpointNoConnect(endpoint);
+  };
+
+  const markEndpointNoConnect = (
+    endpoint: Extract<WireSource["endpoint"], { kind: "terminal" }>,
+    preserveInteraction = false,
+  ): void => {
+    if (
+      options.document.noConnects.some(
+        (item) => endpointKey(item.endpoint) === endpointKey(endpoint),
+      )
+    ) {
+      options.setStatus(
+        `${options.endpointTestId(endpoint)} is already No Connect`,
+      );
+      return;
+    }
+    if (
+      options.document.nets.some((net) =>
+        net.terminals.some(
+          (pin) =>
+            pin.instanceId === endpoint.instanceId &&
+            pin.pinName === endpoint.pinName,
+        ),
+      )
+    ) {
       options.setStatus(
         "Disconnect this endpoint before marking it No Connect",
       );
       return;
     }
-    const result = options.transact([
-      {
-        kind: "add_no_connect",
-        noConnect: { id: nextNoConnectId(), endpoint },
-      },
-    ]);
+    const result = options.transact(
+      [
+        {
+          kind: "add_no_connect",
+          noConnect: { id: nextNoConnectId(), endpoint },
+        },
+      ],
+      { preserveInteraction },
+    );
     if (result.ok) {
       options.setStatus(
         `Marked ${options.endpointTestId(endpoint)} No Connect`,
@@ -1378,6 +1406,7 @@ export function useSelectionInteraction(
     deleteSelectedJunction,
     deleteSelection,
     toggleSelectedNoConnect,
+    markEndpointNoConnect,
     disconnectSelectedEndpoint,
     updateCommandMovePreview,
     canBeginKeyboardSelectionMove: () =>

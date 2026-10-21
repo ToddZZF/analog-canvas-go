@@ -17,6 +17,8 @@ const INPUT_SWAP_SOURCES = [
   "opamp-lettered",
   "comparator",
   "comparator-unmarked",
+  "comparator-differential",
+  "comparator-differential-unmarked",
   "differential-transconductance",
   "opamp-differential",
   "opamp-differential-lettered",

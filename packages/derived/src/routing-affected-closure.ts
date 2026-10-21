@@ -1,5 +1,7 @@
 import { routeEnd } from "@icm/model";
 import type { RouteEndpoint, SchematicDocument } from "@icm/model";
+import type { SymbolResolver } from "@icm/symbols";
+import { carriedContactJunctionIds } from "./junction-style.js";
 
 import { deriveInternalGroupSelection } from "./routing-components.js";
 
@@ -22,6 +24,7 @@ export interface RoutingAffectedClosure {
 }
 
 export interface RoutingAffectedClosureOptions {
+  readonly resolver?: SymbolResolver | undefined;
   /**
    * Expand selected Instances to Route components whose terminal endpoints
    * are all selected. Move/delete use that connected-subgraph behavior. An
@@ -76,6 +79,13 @@ export function deriveRoutingAffectedClosure(
   for (const junctionId of seed.junctionIds) {
     if (knownJunctions.has(junctionId)) internalJunctionIds.add(junctionId);
   }
+  if (options.resolver)
+    for (const id of carriedContactJunctionIds(
+      document,
+      options.resolver,
+      instanceIds,
+    ))
+      internalJunctionIds.add(id);
 
   // A Route the person selected travels with the selection, and the Junctions
   // on its ends travel with it.

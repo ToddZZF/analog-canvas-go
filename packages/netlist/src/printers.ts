@@ -310,6 +310,18 @@ function spectreCell(
       lines.push(
         `model ${model.name} bsim4 type=${model.type === "nmos" ? "n" : "p"}`,
       );
+    // Classic junction / Gummel-Poon stand-ins, with the same explicit
+    // parameters as the SPICE export. Extraction omits these from Spectre runs.
+    if (["D", "NPN", "PNP"].includes(model.type)) {
+      const kind =
+        model.type === "D" ? "diode" : `bjt type=${model.type.toLowerCase()}`;
+      const parameters = model.parameters
+        .map((p) => `${p.name.toLowerCase()}=${p.rawValue}`)
+        .join(" ");
+      lines.push(
+        `model ${model.name} ${kind}${parameters ? " " + parameters : ""}`,
+      );
+    }
   }
   let offset = lines.join("\n").length + 1;
   for (const instance of cell.instances) {

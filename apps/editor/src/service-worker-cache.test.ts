@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { decodeCanvasPackage } from "./features/netlist-export/rnl-canvas-package";
 
 /**
  * The static shell worker is plain script, not a module, so it is evaluated
@@ -64,11 +65,12 @@ function loadWorker(
 
 async function requestScript(
   response: Response,
+  destination: "script" | "worker" = "script",
 ): Promise<{ stored: Map<string, Response>; served: Response }> {
   const { listeners, stored } = loadWorker((() =>
     Promise.resolve(response)) as unknown as typeof fetch);
   const request = new Request("https://analog-canvas.test/assets/App-abc.js");
-  Object.defineProperty(request, "destination", { value: "script" });
+  Object.defineProperty(request, "destination", { value: destination });
   let served: Promise<Response> | null = null;
   const pending: Promise<unknown>[] = [];
   listeners.get("fetch")!({
@@ -86,6 +88,55 @@ async function requestScript(
 }
 
 describe("static shell cache policy", () => {
+  it("refreshes a rejected Canvas package on reload and keeps a verified offline fallback", async () => {
+    const valid = new Uint8Array(
+      readFileSync(
+        resolve(
+          "apps/editor/src/features/netlist-export/analog-canvas-extensions.rnl",
+        ),
+      ),
+    );
+    let network: Uint8Array<ArrayBuffer> | null = new Uint8Array([
+      ...valid,
+      10,
+    ]);
+    const { listeners } = loadWorker((async () => {
+      if (!network) throw new Error("offline");
+      return new Response(network);
+    }) as typeof fetch);
+    const loadPackage = async () => {
+      const request = new Request(
+        "https://analog-canvas.test/assets/analog-canvas-extensions-abc.rnl",
+        { cache: "reload" },
+      );
+      let served!: Promise<Response>;
+      const pending: Promise<unknown>[] = [];
+      listeners.get("fetch")!({
+        request,
+        respondWith: (value) => {
+          served = value;
+        },
+        waitUntil: (value) => {
+          pending.push(value);
+        },
+      });
+      const response = await served;
+      await Promise.all(pending);
+      return decodeCanvasPackage(new Uint8Array(await response.arrayBuffer()));
+    };
+    await expect(loadPackage()).rejects.toThrow(
+      /Canvas package SHA-256 mismatch/u,
+    );
+    network = valid;
+    await expect(loadPackage()).resolves.toContain(
+      '@PACKAGE(name="analog-canvas-extensions", version="0.1")',
+    );
+    network = null;
+    await expect(loadPackage()).resolves.toContain(
+      '@PACKAGE(name="analog-canvas-extensions", version="0.1")',
+    );
+  });
+
   it.each(["script", "navigate"])(
     "caches %s even when the browser consumes the body before storage opens",
     async (kind) => {
@@ -162,28 +213,36 @@ describe("static shell cache policy", () => {
     expect(stored.size).toBe(0);
   });
 
-  it("keeps a script that really is a script", async () => {
-    const { stored } = await requestScript(
-      new Response("export const a = 1;", {
-        headers: { "content-type": "text/javascript" },
-      }),
-    );
-    expect(stored.has("/assets/App-abc.js")).toBe(true);
-  });
+  it.each(["script", "worker"] as const)(
+    "keeps a %s that really is JavaScript",
+    async (destination) => {
+      const { stored } = await requestScript(
+        new Response("export const a = 1;", {
+          headers: { "content-type": "text/javascript" },
+        }),
+        destination,
+      );
+      expect(stored.has("/assets/App-abc.js")).toBe(true);
+    },
+  );
 
-  it("refuses to keep the app shell under an asset name", async () => {
-    // A single-page-application fallback answers a missing asset with the
-    // shell at 200. Cached as a script, that name stays broken for as long as
-    // the cache lives — long after the deploy that caused it.
-    const { stored, served } = await requestScript(
-      new Response("<!doctype html><html></html>", {
-        headers: { "content-type": "text/html" },
-      }),
-    );
-    expect(stored.has("/assets/App-abc.js")).toBe(false);
-    // The response is still passed through; only storing it is refused.
-    expect(await served.text()).toContain("doctype");
-  });
+  it.each(["script", "worker"] as const)(
+    "refuses to keep the app shell under a %s name",
+    async (destination) => {
+      // A single-page-application fallback answers a missing asset with the
+      // shell at 200. Cached as a script, that name stays broken for as long as
+      // the cache lives — long after the deploy that caused it.
+      const { stored, served } = await requestScript(
+        new Response("<!doctype html><html></html>", {
+          headers: { "content-type": "text/html" },
+        }),
+        destination,
+      );
+      expect(stored.has("/assets/App-abc.js")).toBe(false);
+      // The response is still passed through; only storing it is refused.
+      expect(await served.text()).toContain("doctype");
+    },
+  );
 
   it("keeps nothing from a failed request", async () => {
     const { stored } = await requestScript(
@@ -216,7 +275,11 @@ describe("static shell cache policy", () => {
     expect(stored.size).toBe(0);
   });
 
-  it("keeps a font file read with fetch(), as the PDF exporter reads its faces", async () => {
+  it.each([
+    ["font", "/assets/DejaVuSans-abc.ttf"],
+    ["Canvas package", "/assets/analog-canvas-extensions-abc.rnl"],
+    ["RNL runtime", "/assets/rnl_runtime_wasm-abc.wasm"],
+  ])("keeps a %s read with fetch()", async (_name, path) => {
     const fetched = (path: string) => {
       const { listeners, stored } = loadWorker(
         (async () =>
@@ -239,12 +302,14 @@ describe("static shell cache policy", () => {
       });
       return { stored, served, pending };
     };
-    const font = fetched("/assets/DejaVuSans-abc.ttf");
-    await font.served;
-    await Promise.all(font.pending);
-    expect(font.stored.has("/assets/DejaVuSans-abc.ttf")).toBe(true);
+    const asset = fetched(path);
+    await asset.served;
+    await Promise.all(asset.pending);
+    expect(asset.stored.has(path)).toBe(true);
     // Any other plain fetch stays the page's own.
     expect(fetched("/assets/catalog-abc.json").served).toBeNull();
+    expect(fetched("/assets/analog-canvas-extensions.rnl").served).toBeNull();
+    expect(fetched("/private/user-package.rnl").served).toBeNull();
   });
 
   it("does not store an explicitly no-store static response", async () => {

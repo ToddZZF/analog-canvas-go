@@ -1,9 +1,9 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import { RNL_SYMBOLS } from "@icm/rnl";
-import { startCore } from "@rich-netlist/runtime";
+import { createRnlTestCore } from "./rnl-core.test-support";
 
-const core = startCore();
+const core = await createRnlTestCore();
 afterAll(() => core.terminate());
 
 /** An exit direction in degrees, as the mapping table has it, as the catalog says it. */
@@ -31,6 +31,9 @@ describe("the mapping table against the rnl runtime's catalog", () => {
     const problems: string[] = [];
     let compared = 0;
     for (const row of RNL_SYMBOLS) {
+      // File-local stencils are exercised by the real write/import round trip,
+      // not claimed to exist in the runtime's fixed package catalog.
+      if (row.inline) continue;
       const symbol = found.get(`${row.package}/${row.symbol}`);
       if (!symbol) {
         problems.push(`${row.package}/${row.symbol}: not in the catalog`);

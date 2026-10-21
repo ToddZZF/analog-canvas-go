@@ -128,7 +128,7 @@ export function createSelectionTransformController({
       junctionIds: selection.junctionIds,
       annotationIds: selection.annotationIds,
     };
-    const closure = deriveRoutingAffectedClosure(document, seed);
+    const closure = deriveRoutingAffectedClosure(document, seed, { resolver });
     const draftingObjects = selection.draftingIds.flatMap((id) => {
       const object = document.drafting?.objects.find(
         (candidate) => candidate.id === id,

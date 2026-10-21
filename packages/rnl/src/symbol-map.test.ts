@@ -142,7 +142,7 @@ describe("the RNL symbol list", () => {
         [-3, -2],
       ]);
     }
-    expect(RNL_SYMBOLS.filter((entry) => entry.importOnly)).toHaveLength(10);
+    expect(RNL_SYMBOLS.filter((entry) => entry.importOnly)).toHaveLength(11);
   });
 
   it("names the definition a glyph or a drawing-only part draws", () => {
@@ -214,7 +214,7 @@ describe("the RNL symbol list", () => {
   it("knows the order Analog Canvas prints each of its own bodies in", () => {
     for (const entry of drawnFromCanvas) {
       const body = subcircuitDescriptor(entry.ac!);
-      if (!body) continue;
+      if (!body || entry.importOnly) continue;
       expect(
         body.ports.map((port) =>
           port.supply

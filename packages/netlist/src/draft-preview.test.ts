@@ -71,7 +71,7 @@ describe("draft netlist preview", () => {
   it("prints ? for a missing model and names a part with no netlist form", () => {
     const project = parts([
       ["M1", "nmos", 0],
-      ["D1", "delay-cell", 200],
+      ["D1", "unit-delay", 200],
     ]);
     const draft = createDraftNetlistPreview(project)!;
     const card = draft.text.split("\n").find((line) => line.startsWith("M1 "));

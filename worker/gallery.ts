@@ -20,7 +20,8 @@ import {
   wallTagCounts,
 } from "./gallery-wall-merge";
 import { sameOrigin } from "./same-origin";
-import { llmsUsagePolicy, robotsTxt } from "./usage-policy";
+import { BULK_ACCESS_NOTE, llmsUsagePolicy, robotsTxt } from "./usage-policy";
+import { readsTraps, trapOf, trapResponse, withTrap } from "./gallery-traps";
 import {
   GALLERY_DAILY_OPEN_LIMIT,
   GALLERY_MAX_REJECT_REASON_LENGTH,
@@ -153,12 +154,38 @@ async function galleryReaderOf(
   const remembered = galleryReaders.get(cookie);
   if (remembered && remembered.expires > now) return remembered.user;
   const user = await readSession();
-  if (user) {
+  // A blocked account is asked again each time, so an unblock holds at once.
+  if (user && !user.blocked) {
     if (galleryReaders.size >= 256)
       galleryReaders.delete(galleryReaders.keys().next().value!);
     galleryReaders.set(cookie, { expires: now + 60_000, user });
   }
   return user;
+}
+
+/** Asks the AuthDO to block the account that read a trap circuit. */
+async function blockForTrap(
+  env: GalleryEnv,
+  request: Request,
+  reader: SessionUser,
+  entryId: string,
+): Promise<void> {
+  if (!env.AUTH) return;
+  const headers = request.headers;
+  await env.AUTH.getByName("auth")
+    .fetch("https://auth/internal/block-account", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userId: reader.id,
+        entryId,
+        path: new URL(request.url).pathname,
+        ip: headers.get("cf-connecting-ip"),
+        country: headers.get("cf-ipcountry"),
+        userAgent: headers.get("user-agent"),
+      }),
+    })
+    .catch(() => null);
 }
 
 /** A reader's copy of a cacheable response: a browser may keep it, a shared cache may not. */
@@ -487,6 +514,29 @@ export async function routeGalleryRequest(
       );
   }
 
+  // An account blocked for collecting the Gallery in bulk reads and writes
+  // none of it.
+  if ((await galleryReaderOf(request, readSession))?.blocked)
+    return Response.json(
+      { error: "account-blocked", usage: BULK_ACCESS_NOTE },
+      { status: 403, headers: { "cache-control": "no-store" } },
+    );
+  // A trap circuit (gallery-traps.ts): only a program walking the list
+  // reads one. Its account is blocked and the Owner told; the reply looks
+  // like any circuit's. Anyone else meets no such circuit.
+  const trap = trapOf(segments[0]);
+  if (trap) {
+    const reader = await readSession();
+    if (!readsTraps(reader))
+      return Response.json(
+        { error: "not-found" },
+        { status: 404, headers: { "cache-control": "no-store" } },
+      );
+    await blockForTrap(env, request, reader, trap.id);
+    galleryReaders.delete(request.headers.get("Cookie") ?? "");
+    return trapResponse(trap, segments[1]);
+  }
+
   // Reference datasets (#1510). Each lives in a store of its own: a request
   // reaches it by the import route, its entry's id, or the wall's `source`.
   // Nothing writes there but the Owner's import.
@@ -563,14 +613,15 @@ export async function routeGalleryRequest(
     const payload = (await wallList(wallStores, listing)) as {
       entries: GalleryEntrySummary[];
     };
+    const entries = gateSimulationMarks(
+      payload.entries,
+      viewer,
+      simulationMarkPublic(runtime.simulationMarkPublicFrom),
+    );
     return Response.json(
       {
         ...payload,
-        entries: gateSimulationMarks(
-          payload.entries,
-          viewer,
-          simulationMarkPublic(runtime.simulationMarkPublicFrom),
-        ),
+        entries: readsTraps(viewer) ? withTrap(entries, url.search) : entries,
       },
       { headers: { "cache-control": "no-store" } },
     );

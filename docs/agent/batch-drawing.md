@@ -51,5 +51,7 @@ Accepted drawings go to the dataset's reference store (#1510), never the
 community wall: `pnpm gallery:import-batches RUN_DIR --source KEY` (`KEY` from
 `config/gallery-sources.json`) writes `RUN_DIR/gallery-import/KEY-*.json`
 (suspect acceptances need `--include-suspect`; `left-out.json` explains
-exclusions), which the Owner posts from a signed-in Gallery page to
-`POST /api/gallery/sources/KEY/entries`; re-importing an id replaces it.
+exclusions). `--post` posts them with the Owner token
+([Reference datasets](../specs/community-gallery.md#reference-datasets)) from
+`ANALOG_CANVAS_OWNER_TOKEN` or `~/.config/analog-canvas/owner-token`; `--help`
+lists the other options. Re-importing an id replaces it.

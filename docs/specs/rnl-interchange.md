@@ -22,6 +22,19 @@ the RNL language and its runtime belong to rnl.
   (`@icm/netlist`, `@icm/symbols`, `@icm/derived`); only the editor loads it.
 - Without the runtime, the RNL formats say so and copy nothing; the other
   formats are unaffected.
+- Canvas extensions are supplied explicitly at a private virtual path in
+  `files` and `pool` for every build, snapshot and rebuild; write and catalog
+  also receive its `package_dirs`. The adapter preserves the caller's files,
+  includes and search order. One package fetch serves the shared Worker;
+  fetch failures identify the package and can be retried.
+- Canvas 0.1 is locked by name, version, URL and raw-byte SHA-256 against the
+  public [package catalog](https://rich-netlist.github.io/rnl-packages/catalog.json).
+  Refreshing the vendored asset rejects changed catalog records or byte hashes.
+  Web and desktop builds verify and ship those bytes as a local Vite asset;
+  runtime loading verifies them before decoding, without contacting the catalog.
+  The static shell caches the same-origin hashed package, Worker and WebAssembly
+  after use; package reloads refresh cached bytes with an offline fallback.
+  Imported package files remain outside that cache.
 
 ### Export formats
 
@@ -34,6 +47,17 @@ the RNL language and its runtime belong to rnl.
   a browser, the system browser in the desktop app, which opens only its fixed
   list of links (`rnl` among them). The link is left out where the build links
   nowhere outside itself. The editor has one language, so there is one page.
+- In the Web and local-host compositions, **Open RNL Viewer** follows About
+  RNL. It is enabled only for the current completed RNL export. A synchronous
+  click opens the full online Viewer, reusing its connected tab without
+  navigating away from Viewer edits, and sends the `.sp` or `.scs` text with
+  `analog-canvas-extensions` 0.1 through the Viewer `rnl: 1` API. Both sides
+  check origin, window identity, launch token and request ID. Netlist text
+  stays out of URLs and upload services. Popup blocking, missing capabilities,
+  import errors and timeouts are reported with retry available. The desktop
+  composition omits this action. Local-host uses `same-origin-allow-popups`
+  and allows capability discovery at the Viewer host; cross-origin isolation
+  is not required by this composition.
 - Bodies the netlist writes itself (ideal blocks, magnetics) print their ports
   in the terminal order of their RNL symbol: SPICE primitives in SPICE order,
   op-amps as their macromodels do (in+ in− V+ V− out), other blocks signals
@@ -53,6 +77,17 @@ the RNL language and its runtime belong to rnl.
   `$VCVS`, `$VCCS`, `$CCVS` and `$CCCS` symbols. Default circle appearances
   export as `$CANVAS_*_CIRCLE` from `analog-canvas-extensions`. Both preserve
   their appearance, pin positions and control connections through import.
+- Fully differential comparators and Delay Cell define their exact artwork in the file
+  using the runtime's `define-symbol` operation. Signals precede supplies;
+  Delay Cell retains both VDD/VSS, while comparator numeric-high bodies omit
+  VDD and every comparator body omits VSS. The old two-terminal drawing-only
+  Delay Cell stencil is import-only. Marked, unmarked and
+  input-swapped states round-trip without an external symbol-package update.
+  Import recognizes the local Symbol only when its name, artwork and positional
+  pins match; an edited stencil keeps the electrically imported part and reports
+  `RNL_IMPORT_UNMAPPED_SYMBOL`. A retargeted custom interface with different
+  positional terminals refuses with `RNL_INLINE_INTERFACE_MISMATCH`, rather
+  than drawing a wire on the wrong signal; plain SPICE/SCS remains available.
 - RNL's op-amp kinds (op-amps, comparators, differential transconductors) put
   - on top, at the inputs and at a differential op-amp's outputs. An Analog
     Canvas variant with − on top is that symbol flipped top to bottom: it is

@@ -13,7 +13,10 @@ import {
   createSimulationFolder,
   type CircuitProject,
 } from "@icm/model";
-import { hierarchicalSymbolId } from "@icm/symbols";
+import {
+  hierarchicalSymbolId,
+  withProjectComponentDefinitions,
+} from "@icm/symbols";
 import { hierarchyParameterFixture } from "../../../netlists/hierarchy-parameters/fixture";
 import {
   executeProjectTransaction,
@@ -48,11 +51,227 @@ function modelNetlist(manager: Locator): Locator {
   return manager.getByLabel("External model netlist");
 }
 
+function cellLayoutProject() {
+  const project = createEmptyProject("cell-layout", "Cell layout");
+  const child = createEmptyDocument("layout-child", "LayoutStage");
+  for (const name of ["A", "B", "C", "D", "E", "F"]) {
+    child.instances.push({ id: `P${name}`, symbolId: "port", placement: null });
+    child.nets.push({
+      id: `inside-${name}`,
+      terminals: [{ instanceId: `P${name}`, pinName: "P" }],
+    });
+    child.netlist!.terminals.push({
+      id: name,
+      name,
+      netId: `inside-${name}`,
+      direction: "passive",
+      interfaceInstanceIds: [`P${name}`],
+    });
+  }
+  child.presentation.cellSymbol = {
+    bodyBounds: { left: -80, right: 80, top: -80, bottom: 80 },
+    pinPlacements: [
+      { terminalId: "A", side: "west", offset: -40 },
+      { terminalId: "B", side: "west", offset: -10 },
+      { terminalId: "C", side: "west", offset: 40 },
+      { terminalId: "D", side: "north", offset: 0 },
+      { terminalId: "E", side: "east", offset: 0 },
+      { terminalId: "F", side: "south", offset: 0 },
+    ],
+  };
+  project.documents.push(child);
+  const parent = project.documents[0]!;
+  for (const [id, x] of [
+    ["X1", 260],
+    ["X2", 620],
+  ] as const)
+    parent.instances.push({
+      ...placedInstance(id, hierarchicalSymbolId("LayoutStage"), x, 220),
+      reference: id,
+      netlist: {
+        parameters: {},
+        binding: { kind: "subcircuit", childDocumentId: child.id },
+      },
+    });
+  parent.instances.push({
+    ...placedInstance("R1", "resistor", 440, 450),
+    reference: "R1",
+    netlist: { parameters: { value: "1k" } },
+  });
+  return withProjectComponentDefinitions(project);
+}
+
+async function editCellLayout(page: Page) {
+  await page.getByTestId("hit-X1").click();
+  await revealPropertiesShelf(page);
+  const shelf = page.getByTestId("selection-shelf");
+  if ((await shelf.getAttribute("aria-expanded")) === "false")
+    await shelf.click();
+  await page
+    .getByRole("button", { name: "Edit symbol layout on canvas" })
+    .click();
+  await expect(page.getByTestId("cell-symbol-layout-overlay")).toBeVisible();
+}
+
+test("Cell layout composes additive and framed pin selection, spacing, arrangement and Wire", async ({
+  page,
+}) => {
+  await openProject(page, serializeProject(cellLayoutProject()));
+  await editCellLayout(page);
+  const handles = page.locator('[data-testid^="cell-symbol-pin-handle-"]');
+  const selected = page.locator(
+    '[data-testid^="cell-symbol-pin-handle-"][data-selected="true"]',
+  );
+  const parentPart = await page.getByTestId("hit-R1").boundingBox();
+  await pressAndMove(page, parentPart!, { x: 40, y: 0 });
+  await page.mouse.up();
+  for (const id of ["A", "B", "C"])
+    await page
+      .getByTestId(`cell-symbol-pin-handle-${id}`)
+      .click({ modifiers: id === "A" ? [] : ["ControlOrMeta"] });
+  await expect(selected).toHaveCount(3);
+  await page.keyboard.press("w");
+  await expectStatus(page, "Select exactly one");
+  await expect(page.getByTestId("cell-symbol-layout-overlay")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Equal spacing", exact: true })
+    .click();
+  const a = await page.getByTestId("cell-symbol-pin-handle-A").boundingBox();
+  const b = await page.getByTestId("cell-symbol-pin-handle-B").boundingBox();
+  const c = await page.getByTestId("cell-symbol-pin-handle-C").boundingBox();
+  expect(b!.y).toBeCloseTo((a!.y + c!.y) / 2, 1);
+  // A window frame replaces the internal selection, independent of parent hits.
+  await page.mouse.move(a!.x - 18, a!.y - 18);
+  await page.mouse.down();
+  await page.mouse.move(c!.x + c!.width + 18, c!.y + c!.height + 18, {
+    steps: 5,
+  });
+  await page.mouse.up();
+  await expect(selected).toHaveCount(3);
+  await page.getByRole("button", { name: "Arrange east", exact: true }).hover();
+  await expect(page.getByTestId("cell-symbol-layout-limit")).toContainText(
+    "occupied",
+  );
+  await page.getByRole("button", { name: "Arrange east", exact: true }).click();
+  await expectStatus(page, /occupied/iu); // E already owns the centre slot.
+  await expect(selected).toHaveCount(3);
+  await page.getByTestId("schematic-canvas").focus();
+  await page.keyboard.press("ArrowDown");
+  await expectStatus(page, "Updated LayoutStage layout");
+  const sourceHandle = await page
+    .getByTestId("cell-symbol-pin-handle-A")
+    .boundingBox();
+  const eastHandle = await page
+    .getByTestId("cell-symbol-pin-handle-E")
+    .boundingBox();
+  await pressAndMove(page, sourceHandle!, {
+    x: eastHandle!.x - sourceHandle!.x,
+    y: 0,
+  });
+  await page.mouse.up();
+  await expectStatus(page, "Updated LayoutStage layout");
+  const saved = await exportedProject(page);
+  expect(
+    saved.documents
+      .find((cell: any) => cell.id === "layout-child")
+      .presentation.cellSymbol.pinPlacements.slice(0, 3),
+  ).toEqual([
+    { terminalId: "A", side: "east", offset: -30 },
+    { terminalId: "B", side: "east", offset: 10 },
+    { terminalId: "C", side: "east", offset: 50 },
+  ]);
+  expect(
+    saved.documents[0].instances.find((item: any) => item.id === "R1").placement
+      .position,
+  ).toEqual({ x: 440, y: 450 });
+  // A crossing frame can acquire a pin by touching its handle's edge.
+  const after = await page
+    .getByTestId("cell-symbol-pin-handle-A")
+    .boundingBox();
+  await page.mouse.move(after!.x + after!.width + 12, after!.y - 3);
+  await page.mouse.down();
+  await page.mouse.move(
+    after!.x + after!.width - 2,
+    after!.y + after!.height + 3,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  await expect(selected).toHaveCount(1);
+  await page.keyboard.press("w");
+  await expect(page.getByTestId("cell-symbol-layout-overlay")).toHaveCount(0);
+  await expectStatus(page, "Wire source: X1.A");
+  await expect(handles).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
+
 async function applyModel(manager: Locator): Promise<void> {
   await manager
     .getByRole("button", { name: "Apply model", exact: true })
     .click();
 }
+
+test("Cell layout reconciles a selected pin removed by an HTTP Agent", async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await openProject(page, serializeProject(cellLayoutProject()));
+  await page.getByRole("button", { name: "Agent", exact: true }).click();
+  const panel = page.getByTestId("connect-agent-panel");
+  const handoff = await panel.getByTestId("agent-copy-text").inputValue();
+  const claimed = await request.post(`${baseURL}/api/agent/claims`, {
+    data: JSON.parse(handoff.match(/Claim: (.+)/u)![1]!),
+  });
+  expect(claimed.ok()).toBe(true);
+  const session = await claimed.json();
+  await panel.getByLabel("Close Agent dialog").click();
+  await editCellLayout(page);
+  await page.getByTestId("cell-symbol-pin-handle-A").click();
+  const send = async (payload: Record<string, unknown>) => {
+    const response = await request.post(
+      `${baseURL}/api/agent/sessions/${session.sessionId}/circuit`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.agentToken}`,
+          "x-agent-context": session.contextRevision,
+        },
+        data: {
+          apiVersion: "3.0",
+          requestId: crypto.randomUUID(),
+          documentId: "layout-child",
+          ...payload,
+        },
+      },
+    );
+    const result = await response.json();
+    if (payload.operation === "snapshot" && result.ok)
+      session.contextRevision = response.headers()["x-agent-context"];
+    expect(response.ok(), JSON.stringify(result.error)).toBe(true);
+    expect(result.ok, JSON.stringify(result.error ?? result.diagnostics)).toBe(
+      true,
+    );
+    return result;
+  };
+  const snapshot = await send({ operation: "snapshot" });
+  await send({
+    operation: "transact",
+    transactionId: crypto.randomUUID(),
+    expectedRevision: snapshot.revision,
+    expectedStructureRevision: snapshot.snapshot.project.structureRevision,
+    command: { kind: "remove-cell-terminal", terminalId: "A" },
+  });
+  await expect(page.getByTestId("cell-symbol-pin-handle-A")).toHaveCount(0);
+  await page.getByTestId("schematic-canvas").focus();
+  await page.keyboard.press("w");
+  await expectStatus(page, "Select exactly one");
+  await expect(page.getByTestId("cell-symbol-layout-overlay")).toBeVisible();
+  await page.getByTestId("cell-symbol-pin-handle-B").click();
+  await page.keyboard.press("w");
+  await expectStatus(page, "Wire source: X1.B");
+  expect(errors).toEqual([]);
+});
 
 test("process shortcuts change only visible model text and clipboard failure stays inline", async ({
   page,
@@ -1107,7 +1326,7 @@ test("declares and places a Cell Pin on a new local Net", async ({ page }) => {
     await page.mouse.up();
     await expect(page.getByTestId("cell-symbol-layout-preview")).toHaveCount(0);
   }
-  await expectStatus(page, /Resized ReusableStage|Committed revision/u);
+  await expectStatus(page, "Updated ReusableStage layout");
   const pinHandle = page.locator('[data-testid^="cell-symbol-pin-handle-"]');
   const pinHandleBox = await pinHandle.boundingBox();
   expect(pinHandleBox).not.toBeNull();
@@ -1119,7 +1338,7 @@ test("declares and places a Cell Pin on a new local Net", async ({ page }) => {
     );
     await page.mouse.up();
   }
-  await expectStatus(page, "Moved Cell symbol pin");
+  await expectStatus(page, "Updated ReusableStage layout");
 
   // Pointer cancellation discards only the preview, with no persisted edit.
   const committedPinBox = await pinHandle.boundingBox();
@@ -1134,21 +1353,56 @@ test("declares and places a Cell Pin on a new local Net", async ({ page }) => {
   await expect(page.getByTestId("cell-symbol-layout-preview")).toHaveCount(0);
   expect((await pinHandle.boundingBox())!.x).toBeCloseTo(committedPinBox!.x, 1);
 
-  // Closing Properties must leave the transient grip mode too; otherwise the
-  // selected Cell keeps suppressing its ordinary hit target.
+  // Properties visibility does not own the pinned layout session.
   await layoutShelf.click();
-  await expect(layoutOverlay).toBeHidden();
-  await expect(page.getByTestId("hit-X1")).toBeVisible();
-
-  await layoutShelf.click();
-  await layout
-    .getByRole("button", { name: "Edit symbol layout on canvas" })
-    .click();
   await expect(layoutOverlay).toBeVisible();
-
-  // A normal canvas click exits the mode before normal pointer handling. The
-  // Cell can then use its normal direct-manipulation path again.
+  await expect(
+    page.locator('[data-testid^="cell-symbol-body-handle"]'),
+  ).toHaveCount(8);
+  const beforeZoomView = await canvas.getAttribute("viewBox");
+  const beforeZoomGrip = await bodyHandle.boundingBox();
+  await bodyHandle.hover();
+  await page.mouse.wheel(0, -160);
+  await expect
+    .poll(() => canvas.getAttribute("viewBox"))
+    .not.toBe(beforeZoomView);
+  await expect
+    .poll(async () => (await bodyHandle.boundingBox())!.width)
+    .toBeCloseTo(beforeZoomGrip!.width, 0);
+  const panStart = await canvas.boundingBox();
+  const beforePanView = await canvas.getAttribute("viewBox");
+  await page.mouse.move(panStart!.x + 100, panStart!.y + 300);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(panStart!.x + 140, panStart!.y + 320, { steps: 5 });
+  await page.mouse.up({ button: "middle" });
+  await expect
+    .poll(() => canvas.getAttribute("viewBox"))
+    .not.toBe(beforePanView);
+  await expect(layoutOverlay).toBeVisible();
+  const beforeCaptureLoss = await bodyHandle.boundingBox();
+  await pressAndMove(page, beforeCaptureLoss!, { x: 25, y: 25 });
+  await bodyHandle.evaluate((element) => {
+    const circle = element as SVGCircleElement;
+    if (circle.hasPointerCapture(1)) circle.releasePointerCapture(1);
+  });
+  await page.mouse.up();
+  await expect(page.getByTestId("cell-symbol-layout-preview")).toHaveCount(0);
+  expect((await bodyHandle.boundingBox())!.x).toBeCloseTo(
+    beforeCaptureLoss!.x,
+    1,
+  );
+  // A miss clears only the internal pin selection.
   await canvas.click({ position: { x: 40, y: 420 } });
+  await expect(layoutOverlay).toBeVisible();
+  // Escape in a gesture discards it; a second, idle Escape finishes layout.
+  const beforeCancel = await bodyHandle.boundingBox();
+  await pressAndMove(page, beforeCancel!, { x: 40, y: 30 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(page.getByTestId("cell-symbol-layout-preview")).toHaveCount(0);
+  await expect(layoutOverlay).toBeVisible();
+  expect((await bodyHandle.boundingBox())!.x).toBeCloseTo(beforeCancel!.x, 1);
+  await page.keyboard.press("Escape");
   await expect(layoutOverlay).toBeHidden();
   const instanceHit = page.getByTestId("hit-X1");
   const beforeMove = await instanceHit.boundingBox();

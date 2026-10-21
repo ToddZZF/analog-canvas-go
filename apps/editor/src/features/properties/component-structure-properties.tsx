@@ -24,12 +24,14 @@ export function CellSymbolLayoutProperties({
     offset: number,
   ) => void;
 }) {
-  const bodySize = target.presentation?.minimumBodySize;
   const automaticSize = hierarchicalBlockBodySize(target.terminals);
   const actualSize = hierarchicalBlockBodySize(
     target.terminals,
     target.presentation,
   );
+  const bodySize = target.presentation?.bodyBounds
+    ? actualSize
+    : target.presentation?.minimumBodySize;
   return (
     <div
       className="cell-symbol-layout-properties"
@@ -50,7 +52,8 @@ export function CellSymbolLayoutProperties({
       ) : null}
       {enabled ? (
         <small>
-          Drag the corner to resize, or a pin dot to change its side and offset.
+          Drag an edge or corner to resize. Select pin dots or frame them to
+          arrange a group.
         </small>
       ) : null}
       <div className="component-geometry-row">

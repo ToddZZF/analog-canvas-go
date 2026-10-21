@@ -46,12 +46,15 @@ self.addEventListener("activate", (event) => {
 
 function isStaticAsset(request) {
   return (
-    ["script", "style", "image", "font", "manifest"].includes(
+    ["script", "worker", "style", "image", "font", "manifest"].includes(
       request.destination,
     ) ||
-    // The PDF exporter reads the faces it embeds with fetch(), which has no
-    // destination; a font file is the same asset either way.
-    /\.(?:ttf|woff2?)$/u.test(new URL(request.url).pathname)
+    // Fonts and the RNL Worker read these built assets with fetch(), which
+    // has no destination. Imported/user package files stay outside this cache.
+    /\.(?:ttf|woff2?)$/u.test(new URL(request.url).pathname) ||
+    /^\/assets\/(?:analog-canvas-extensions-[^/]+\.rnl|rnl_runtime_wasm-[^/]+\.wasm)$/u.test(
+      new URL(request.url).pathname,
+    )
   );
 }
 
@@ -84,7 +87,8 @@ function servesWhatWasAsked(request, response) {
   }
   const type = (response.headers.get("content-type") ?? "").toLowerCase();
   if (!type) return true;
-  if (request.destination === "script") return type.includes("javascript");
+  if (["script", "worker"].includes(request.destination))
+    return type.includes("javascript");
   if (request.destination === "style") return type.includes("css");
   return !type.includes("text/html");
 }
@@ -100,6 +104,15 @@ function storeResponse(event, key, response) {
         // Quota or storage failure must not break an otherwise valid response.
       }),
   );
+}
+
+function fetchStaticAsset(event) {
+  return fetch(event.request).then((response) => {
+    if (response.ok && servesWhatWasAsked(event.request, response)) {
+      storeResponse(event, event.request, response);
+    }
+    return response;
+  });
 }
 
 self.addEventListener("fetch", (event) => {
@@ -133,16 +146,21 @@ self.addEventListener("fetch", (event) => {
     isStaticAsset(event.request) &&
     new URL(event.request.url).origin === scopeUrl().origin
   ) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.ok && servesWhatWasAsked(event.request, response)) {
-            storeResponse(event, event.request, response);
-          }
-          return response;
-        });
-      }),
-    );
+    if (event.request.cache === "reload") {
+      // A rejected package must be refreshable instead of pinned in this cache.
+      event.respondWith(
+        fetchStaticAsset(event).catch(async (error) => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          throw error;
+        }),
+      );
+    } else {
+      event.respondWith(
+        caches
+          .match(event.request)
+          .then((cached) => cached ?? fetchStaticAsset(event)),
+      );
+    }
   }
 });

@@ -8,6 +8,8 @@ import {
   AUTH_EMAIL_DAILY_LIMIT,
   AUTH_LOGIN_CODE_ATTEMPTS,
   AuthDO,
+  OWNER_ACCOUNT_IDS,
+  ownerTokenUserOf,
   sessionUserOf,
   type AuthEnv,
   type SessionUser,
@@ -1119,5 +1121,201 @@ describe("sessionUserOf (module seam for the gallery)", () => {
       {},
     );
     expect(unbound).toBeNull();
+  });
+});
+
+describe("Owner tokens (#1769)", () => {
+  async function ownerHarness() {
+    const state = sqliteState();
+    const auth = harness(
+      { RESEND_API_KEY: "rk", ADMIN_EMAILS: "admin@example.com" },
+      [],
+      state,
+    );
+    const sql = state.storage.sql;
+    const owner = await emailSignIn(auth, "owner@example.com");
+    const [row] = sql
+      .exec<{
+        id: string;
+      }>("SELECT id FROM users WHERE email = ?", "owner@example.com")
+      .toArray();
+    const ownerId = OWNER_ACCOUNT_IDS[0]!;
+    sql.exec("UPDATE users SET id = ? WHERE id = ?", ownerId, row!.id);
+    sql.exec(
+      "UPDATE sessions SET user_id = ? WHERE user_id = ?",
+      ownerId,
+      row!.id,
+    );
+    const admin = await emailSignIn(auth, "admin@example.com");
+    const member = await emailSignIn(auth, "member@example.com");
+    const tokens = (cookie?: string, init: RequestInit = {}, path = "") =>
+      auth.call(`/api/auth/owner-tokens${path}`, {
+        ...init,
+        ...(cookie ? { cookie } : {}),
+      });
+    const mint = async (label: string) =>
+      (await (
+        await tokens(owner, { method: "POST", body: JSON.stringify({ label }) })
+      ).json()) as { id: string; token: string };
+    const lookup = async (token: string) =>
+      (
+        (await (
+          await auth.durable.fetch(
+            new Request("https://auth/internal/owner-token-user", {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          )
+        ).json()) as { user: SessionUser | null }
+      ).user;
+    return { auth, sql, owner, admin, member, tokens, mint, lookup };
+  }
+
+  it("lets only the signed-in Owner mint, list and revoke tokens", async () => {
+    const { auth, owner, admin, member, tokens, lookup } = await ownerHarness();
+    const mint = (cookie?: string) =>
+      tokens(cookie, {
+        method: "POST",
+        body: JSON.stringify({ label: "laptop" }),
+      });
+    expect((await mint()).status).toBe(401);
+    expect((await mint(admin)).status).toBe(403);
+    expect((await mint(member)).status).toBe(403);
+    expect((await tokens(member)).status).toBe(403);
+    expect(
+      (await tokens(owner, { method: "POST", body: JSON.stringify({}) }))
+        .status,
+    ).toBe(400);
+    // Another site's page cannot mint with the Owner's cookie.
+    expect(
+      (
+        await auth.durable.fetch(
+          new Request(`${ORIGIN}/api/auth/owner-tokens`, {
+            method: "POST",
+            headers: { Cookie: owner, Origin: "https://evil.test" },
+            body: JSON.stringify({ label: "laptop" }),
+          }),
+        )
+      ).status,
+    ).toBe(403);
+
+    auth.durable.now = () => new Date("2026-10-21T00:00:00.000Z");
+    const minted = await mint(owner);
+    expect(minted.status).toBe(201);
+    const made = (await minted.json()) as {
+      id: string;
+      label: string;
+      token: string;
+      createdAt: string;
+    };
+    expect(made).toMatchObject({
+      label: "laptop",
+      createdAt: "2026-10-21T00:00:00.000Z",
+    });
+    expect(made.token).toMatch(/^acot_[A-Za-z0-9_-]{43}$/u);
+
+    auth.durable.now = () => new Date("2026-10-22T00:00:00.000Z");
+    expect((await lookup(made.token))?.isOwner).toBe(true);
+    expect(await lookup(`${made.token}x`)).toBeNull();
+    expect(await lookup("not-an-owner-token")).toBeNull();
+    expect(await (await tokens(owner)).json()).toEqual({
+      tokens: [
+        {
+          id: made.id,
+          label: "laptop",
+          createdAt: "2026-10-21T00:00:00.000Z",
+          lastUsedAt: "2026-10-22T00:00:00.000Z",
+        },
+      ],
+    });
+    // The token itself opens none of this, nor a session.
+    const bearer = { headers: { Authorization: `Bearer ${made.token}` } };
+    expect((await tokens(undefined, bearer)).status).toBe(401);
+    expect(
+      (await tokens(undefined, { ...bearer, method: "DELETE" }, `/${made.id}`))
+        .status,
+    ).toBe(401);
+    expect(await (await auth.call("/api/auth/me", bearer)).json()).toEqual({
+      user: null,
+    });
+
+    expect(
+      (await tokens(member, { method: "DELETE" }, `/${made.id}`)).status,
+    ).toBe(403);
+    expect(
+      (await tokens(owner, { method: "DELETE" }, "/no-such-token")).status,
+    ).toBe(404);
+    const revoked = await tokens(owner, { method: "DELETE" }, `/${made.id}`);
+    expect(await revoked.json()).toEqual({ revoked: made.id });
+    expect(await lookup(made.token)).toBeNull();
+    expect(await (await tokens(owner)).json()).toEqual({ tokens: [] });
+  });
+
+  it("resolves a token whose account is no longer the Owner without isOwner", async () => {
+    const { sql, mint, lookup } = await ownerHarness();
+    const { token } = await mint("desktop");
+    sql.exec(
+      "UPDATE users SET id = 'former-owner' WHERE id = ?",
+      OWNER_ACCOUNT_IDS[0],
+    );
+    sql.exec(
+      "UPDATE owner_tokens SET user_id = 'former-owner' WHERE user_id = ?",
+      OWNER_ACCOUNT_IDS[0],
+    );
+    const user = await lookup(token);
+    expect(user?.id).toBe("former-owner");
+    expect(user?.isOwner).toBeUndefined();
+  });
+
+  it("ownerTokenUserOf reads the bearer through the binding", async () => {
+    const { auth, owner, mint } = await ownerHarness();
+    const { token } = await mint("ci");
+    let bindingFetches = 0;
+    const env = {
+      AUTH: {
+        getByName: () => ({
+          fetch: (input: Request | string, init?: RequestInit) => {
+            bindingFetches += 1;
+            return auth.durable.fetch(
+              typeof input === "string" ? new Request(input, init) : input,
+            );
+          },
+        }),
+      },
+    };
+    const request = (headers: HeadersInit = {}) =>
+      new Request(`${ORIGIN}/api/gallery/sources/analoggenie/entries`, {
+        headers,
+      });
+    const bearer = { Authorization: `Bearer ${token}` };
+    expect((await ownerTokenUserOf(request(bearer), env))?.isOwner).toBe(true);
+    expect(bindingFetches).toBe(1);
+    // Anything but an Owner token's prefix never wakes the AuthDO.
+    expect(await ownerTokenUserOf(request(), env)).toBeNull();
+    expect(await ownerTokenUserOf(request({ Cookie: owner }), env)).toBeNull();
+    expect(
+      await ownerTokenUserOf(
+        request({ Authorization: "Bearer gallery-reader" }),
+        env,
+      ),
+    ).toBeNull();
+    expect(bindingFetches).toBe(1);
+    expect(await ownerTokenUserOf(request(bearer), {})).toBeNull();
+  });
+
+  it("removes an account's tokens with the account", async () => {
+    const { auth, sql, owner, mint, lookup } = await ownerHarness();
+    const { token } = await mint("old laptop");
+    const deleted = await auth.call("/api/auth/account/delete", {
+      method: "POST",
+      cookie: owner,
+      body: JSON.stringify({ confirm: "delete-account" }),
+    });
+    expect(deleted.status).toBe(200);
+    expect(await lookup(token)).toBeNull();
+    expect(
+      sql
+        .exec<{ count: number }>("SELECT COUNT(*) AS count FROM owner_tokens")
+        .one().count,
+    ).toBe(0);
   });
 });

@@ -34,7 +34,7 @@ type Combinational = {
   inputs: readonly string[];
   fn: Exclude<
     Extract<BuiltInModelRecipe, { family: "logic" }>["implementation"],
-    "flip-flop"
+    "flip-flop" | "delay"
   >;
 };
 
@@ -140,6 +140,22 @@ function flipFlopBody(model: FlipFlop): BehavioralElement[] {
   ];
 }
 
+/** Nominal 50% delay: tau = tpd/ln(2), followed by logic regeneration. */
+function delayBody(): BehavioralElement[] {
+  return [
+    level("A"),
+    voltage("Bf", "nfn", "VSS", "V(VDD,VSS)*V(hA)"),
+    passive("resistor", "Rd", "nfn", "ndl", "1k"),
+    passive("capacitor", "Cd", "ndl", "VSS", "tpd/(1000*ln(2))", true),
+    voltage(
+      "BY",
+      "Y",
+      "VSS",
+      "V(VDD,VSS)*0.5*(1+tanh((V(ndl,VSS)-0.5*V(VDD,VSS))/vt))",
+    ),
+  ];
+}
+
 /** The `.subckt` text of one gate or flip-flop, ready for an ngspice file. */
 export function idealLogicModel(target: string): BehavioralModel {
   const model = builtInModelContract(target);
@@ -149,22 +165,27 @@ export function idealLogicModel(target: string): BehavioralModel {
   return {
     name: target,
     ports,
-    comment: `Ideal ${model.symbolId}: switches at V(VDD,VSS)/2; vt sets the step width, td the delay`,
+    comment:
+      model.implementation === "delay"
+        ? "Delay Cell: nominal 50% propagation tpd, tau=tpd/ln(2), logic regeneration; not pure transport delay"
+        : `Ideal ${model.symbolId}: switches at V(VDD,VSS)/2; vt sets the step width, td the delay`,
     parameters: Object.entries(builtInModelDefaults(target)).map(
       ([name, defaultValue]) => ({ name, defaultValue }),
     ),
     elements:
-      model.implementation === "flip-flop"
-        ? flipFlopBody({
-            reset: ports.includes("RST"),
-            complement: ports.includes("QBAR"),
-          })
-        : combinationalBody({
-            fn: model.implementation,
-            inputs: model.ports
-              .filter((port) => port.direction === "input")
-              .map((port) => port.name),
-          }),
+      model.implementation === "delay"
+        ? delayBody()
+        : model.implementation === "flip-flop"
+          ? flipFlopBody({
+              reset: ports.includes("RST"),
+              complement: ports.includes("QBAR"),
+            })
+          : combinationalBody({
+              fn: model.implementation,
+              inputs: model.ports
+                .filter((port) => port.direction === "input")
+                .map((port) => port.name),
+            }),
   };
 }
 

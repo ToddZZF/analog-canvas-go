@@ -202,7 +202,7 @@
     "pinOrder": ["A", "Y"],
     "palette": true,
     "automaticMappings": [],
-    "manualOnlyReason": "Visual delay-stage block; timing and structural netlist semantics require an explicit implementation mapping.",
+    "manualOnlyReason": "Manual placement; noninverting formula propagation delay or an explicit project Cell implementation, not pure transport delay.",
     "assetPath": "delay-cell.json",
     "visualAuthority": {
       "kind": "razavi-reference-v1",
@@ -220,5 +220,32 @@
       "converterPath": "scripts/generate-razavi-delay-cell-asset.mjs",
       "converterVersion": 2
     }
+  },
+  "subcircuit": {
+    "id": "delay-cell",
+    "symbolId": "delay-cell",
+    "target": "delay_cell",
+    "ports": [
+      {
+        "name": "VDD",
+        "direction": "inout",
+        "supply": "VDD"
+      },
+      {
+        "name": "VSS",
+        "direction": "inout",
+        "supply": "VSS"
+      },
+      {
+        "name": "A",
+        "direction": "input",
+        "pinName": "A"
+      },
+      {
+        "name": "Y",
+        "direction": "output",
+        "pinName": "Y"
+      }
+    ]
   }
 }

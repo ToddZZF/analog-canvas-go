@@ -467,6 +467,43 @@ for (const id of ["comparator", "comparator-unmarked"]) {
   entry.assetHash = hash(source);
   entry.generation = { ...generation };
 }
+// A house extension of the comparator, not a new PDF extraction. Reuse the
+// shared dual-output construction, including its overlap with the outline.
+for (const unmarked of [false, true]) {
+  const id = `comparator-differential${unmarked ? "-unmarked" : ""}`;
+  const name = `Fully Differential Comparator${unmarked ? " (unmarked)" : ""}`;
+  const next = differentialSymbol(id, name, true);
+  if (unmarked) {
+    next.primitives = next.primitives.filter(
+      (primitive) =>
+        !["input-polarity", "upright-input-polarity-negative"].includes(
+          primitive.part,
+        ),
+    );
+  }
+  const comparator = JSON.parse(comparatorOutputs[0][1]);
+  next.primitives.push(
+    ...comparator.primitives.filter(
+      (primitive) => primitive.part === "hysteresis-step",
+    ),
+  );
+  const source = normalize(
+    await format(JSON.stringify(next, null, 2), { parser: "json" }),
+  );
+  comparatorOutputs.push([
+    resolve(root, `packages/components/definitions/${id}.json`),
+    source,
+  ]);
+  const entry = catalog.entries.find((candidate) => candidate.symbolId === id);
+  if (!entry) fail(`missing catalog entry ${id}`);
+  entry.assetHash = hash(source);
+  entry.generation = {
+    kind: "derived-differential-comparator",
+    sourceSymbolId: "comparator",
+    converterPath: "scripts/generate-razavi-opamp-asset.mjs",
+    converterVersion: 1,
+  };
+}
 const catalogSource = normalize(
   await format(JSON.stringify(catalog, null, 2), { parser: "json" }),
 );

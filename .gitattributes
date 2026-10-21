@@ -45,3 +45,5 @@ fixtures/ngspice-failures/*.raw -text !eol whitespace=-blank-at-eol,-blank-at-eo
 # The vendored SKY130 HD cell netlist (#1596) is pinned by its SHA-256 in the
 # hosted Profile: keep the upstream bytes, trailing whitespace included.
 containers/ngspice/cells/*.spice -text !eol whitespace=-blank-at-eol,-blank-at-eof
+# The Canvas package lock hashes upstream bytes, before text decoding.
+apps/editor/src/features/netlist-export/analog-canvas-extensions.rnl -text !eol whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

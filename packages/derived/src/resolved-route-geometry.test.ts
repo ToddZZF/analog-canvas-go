@@ -91,7 +91,7 @@ describe("resolved route geometry", () => {
     const family = builtInSymbols.filter((symbol) =>
       /^(?:opamp|voltage-amplifier|comparator)(?:-|$)/u.test(symbol.id),
     );
-    expect(family).toHaveLength(30);
+    expect(family).toHaveLength(34);
     const current = new InMemorySymbolResolver(family);
     const previous = new InMemorySymbolResolver(
       family.map((symbol) => ({

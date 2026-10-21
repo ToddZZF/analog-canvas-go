@@ -127,6 +127,12 @@ interface CanvasEventHandlerDependencies {
     placeAt: (position: Point, svg: SVGSVGElement) => void;
     clearHover: () => void;
   };
+  noConnectPlacement?: {
+    active: boolean;
+    placeAt: (point: { x: number; y: number }, svg: SVGSVGElement) => void;
+    hoverAt: (point: { x: number; y: number }, svg: SVGSVGElement) => void;
+    clearHover: () => void;
+  };
   report: (status: string) => void;
   /**
    * Read-and-clear flag for the click that belongs to an armed-verb pickup;
@@ -138,7 +144,7 @@ interface CanvasEventHandlerDependencies {
 /** DOM event boundary for the editor canvas; domain mutations stay injected. */
 export function createEditorCanvasEventHandlers({
   model: { tool, document, resolver, selectionPolicy },
-  session: { interactionKind, cellSymbolLayoutEnabled, exitCellSymbolLayout },
+  session: { interactionKind, cellSymbolLayoutEnabled },
   coordinates: {
     pointFromClient,
     logicalRadiusForPixels,
@@ -192,11 +198,22 @@ export function createEditorCanvasEventHandlers({
     cancel: cancelWire,
   },
   netLabelPlacement,
+  noConnectPlacement,
   report: setStatus,
   consumePickupClick,
 }: CanvasEventHandlerDependencies) {
   return {
     onClickCapture(event: CanvasMouseEvent) {
+      if (noConnectPlacement?.active) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.button === 0 && event.detail === 1)
+          noConnectPlacement.placeAt(
+            { x: event.clientX, y: event.clientY },
+            event.currentTarget,
+          );
+        return;
+      }
       const kind = interactionKind();
       if (netLabelPlacement.active) {
         event.preventDefault();
@@ -302,6 +319,12 @@ export function createEditorCanvasEventHandlers({
     onPointerDownCapture(event: CanvasPointerEvent) {
       const target = event.target as Element;
       if (target.closest('[data-testid="canvas-text-editor"]')) return;
+      if (noConnectPlacement?.active && event.button === 0) {
+        event.currentTarget.focus({ preventScroll: true });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (netLabelPlacement.active) {
         event.preventDefault();
         event.stopPropagation();
@@ -317,7 +340,11 @@ export function createEditorCanvasEventHandlers({
         target.closest('[data-testid="cell-symbol-layout-overlay"]')
       )
         return;
-      if (cellSymbolLayoutEnabled) exitCellSymbolLayout();
+      if (cellSymbolLayoutEnabled && event.button === 0 && !event.altKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (interactionKind() === "moving-selection") {
         event.stopPropagation();
         return;
@@ -350,12 +377,25 @@ export function createEditorCanvasEventHandlers({
       handleCanvasHitPointerDown(event);
     },
     onPointerDown: beginCanvasGesture,
-    onPointerMove: continueCanvasGesture,
+    onPointerMove(event: CanvasPointerEvent) {
+      if (
+        noConnectPlacement?.active &&
+        !event.currentTarget.hasPointerCapture(event.pointerId)
+      ) {
+        noConnectPlacement.hoverAt(
+          { x: event.clientX, y: event.clientY },
+          event.currentTarget,
+        );
+        return;
+      }
+      continueCanvasGesture(event);
+    },
     onPointerLeave(event: CanvasPointerEvent) {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) return;
       const kind = interactionKind();
       clearDraftingHover();
       clearWireHover();
+      noConnectPlacement?.clearHover();
       if (netLabelPlacement.active) netLabelPlacement.clearHover();
       if (pendingSymbolId) clearComponentPreview();
       if (vddRailMode) clearVddRailPreview();
@@ -394,6 +434,10 @@ export function createEditorCanvasEventHandlers({
       }
     },
     onDoubleClick(event: CanvasMouseEvent) {
+      if (cellSymbolLayoutEnabled) {
+        event.preventDefault();
+        return;
+      }
       const target = event.target as Element;
       if (tool === "pointer") {
         const pointHits = rankCanvasHits(

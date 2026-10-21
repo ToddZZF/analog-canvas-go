@@ -8,7 +8,7 @@ import type {
   ExternalSubcircuitDefinition,
   SchematicDocument,
 } from "@icm/model";
-import { foldNetName, routeEnd } from "@icm/model";
+import { cellSymbolPinFitsBody, foldNetName, routeEnd } from "@icm/model";
 import {
   resolveReviewedExternalBinding,
   resolveReviewedLibraryInterface,
@@ -381,7 +381,7 @@ export interface CellSymbolPinRequest {
   readonly name: string;
   readonly side: CellSymbolSide;
   /**
-   * Along the side from its middle, a multiple of 10. Left out, the Pin
+   * Along the side from the Symbol origin, a multiple of 10. Left out, the Pin
    * stays put on its own side, or takes the first free slot of a new one.
    */
   readonly offset?: number | undefined;
@@ -452,12 +452,18 @@ export function planSetCellSymbolPins(
       along(slot.side).set(slot.offset, terminal.id);
   }
   const placed = new Map<string, { side: CellSymbolSide; offset: number }>();
+  const freeOffsets = (side: CellSymbolSide) =>
+    freeHierarchicalBlockOffsets(along(side).keys()).filter((offset) => {
+      const bounds = document.presentation.cellSymbol?.bodyBounds;
+      if (!bounds) return true;
+      return cellSymbolPinFitsBody({ side, offset }, bounds);
+    });
   const stand = (terminalId: string, side: CellSymbolSide, offset: number) => {
     const other = along(side).get(offset);
     if (other !== undefined)
       throw new Error(
-        `${nameOf(terminalId)} and ${nameOf(other)} would stand on one slot, ${side} ${offset}. Free on ${side}, in the order a Pin with no offset takes them: ${freeHierarchicalBlockOffsets(
-          along(side).keys(),
+        `${nameOf(terminalId)} and ${nameOf(other)} would stand on one slot, ${side} ${offset}. Free on ${side}, in the order a Pin with no offset takes them: ${freeOffsets(
+          side,
         )
           .slice(0, 4)
           .join(", ")}. Nothing was changed.`,
@@ -480,7 +486,7 @@ export function planSetCellSymbolPins(
   }
   for (const [terminalId, pin] of asked) {
     if (placed.has(terminalId)) continue;
-    const offset = freeHierarchicalBlockOffsets(along(pin.side).keys())[0];
+    const offset = freeOffsets(pin.side)[0];
     if (offset === undefined)
       throw new Error(
         `No free slot on the ${pin.side} side for ${nameOf(terminalId)}. Nothing was changed.`,
@@ -496,9 +502,7 @@ export function planSetCellSymbolPins(
     return [];
   const stored = document.presentation.cellSymbol;
   return planSetCellSymbolPresentation(project, documentId, {
-    ...(stored?.minimumBodySize
-      ? { minimumBodySize: stored.minimumBodySize }
-      : {}),
+    ...stored,
     pinPlacements: terminals.flatMap((terminal) => {
       const slot = placed.get(terminal.id) ?? now.get(terminal.id);
       return slot

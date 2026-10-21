@@ -148,15 +148,15 @@
     {
       "id": "reference/razavi-style",
       "source": "docs/agent/circuit-style-knowledge.md",
-      "name": "Schematic layout lookup",
-      "description": "Short structure, layout and wiring tables with a two-stage amplifier example. Read once for style tasks.",
+      "name": "Drawing a schematic",
+      "description": "What a finished drawing is: connected, compact and like its source; pitch targets, structure and wiring tables, names and render review. Read once before drawing or restyling.",
       "mimeType": "text/markdown",
       "consumers": [
         "mcp",
         "http-cli",
         "http-kit"
       ],
-      "task": "Look up schematic layout rules",
+      "task": "Draw or redraw a schematic from a figure, paper or netlist",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/razavi-style",
@@ -182,7 +182,7 @@
     {
       "id": "reference/routing",
       "source": "docs/agent/circuit-style-knowledge.md",
-      "name": "Wiring rules (layout lookup alias)",
+      "name": "Wiring rules (drawing guide alias)",
       "description": "Same content as reference/razavi-style; no additional reading needed.",
       "mimeType": "text/markdown",
       "consumers": [
@@ -190,7 +190,7 @@
         "http-cli",
         "http-kit"
       ],
-      "task": "Layout lookup alias; do not reread",
+      "task": "Drawing guide alias; do not reread",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/routing",
@@ -468,7 +468,7 @@
     {
       "id": "reference/knowledge/patterns",
       "source": "docs/agent/circuit-style-knowledge.md",
-      "name": "Circuit patterns (layout lookup alias)",
+      "name": "Circuit patterns (drawing guide alias)",
       "description": "Same content as reference/razavi-style; no additional reading needed.",
       "mimeType": "text/markdown",
       "consumers": [
@@ -476,7 +476,7 @@
         "http-cli",
         "http-kit"
       ],
-      "task": "Layout lookup alias; do not reread",
+      "task": "Drawing guide alias; do not reread",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/knowledge/patterns",

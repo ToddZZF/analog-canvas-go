@@ -107,6 +107,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function hasExplicitCellBody(project: Record<string, unknown>): boolean {
+  const items = (value: unknown): Record<string, unknown>[] =>
+    Array.isArray(value) ? value.filter(isRecord) : [];
+  const presentationHasBody = (value: unknown) =>
+    isRecord(value) && Object.hasOwn(value, "bodyBounds");
+  const artworkHasBody = (value: unknown) =>
+    isRecord(value) &&
+    isRecord(value.generatedFrom) &&
+    presentationHasBody(value.generatedFrom.presentation);
+  return (
+    items(project.documents).some(
+      (document) =>
+        isRecord(document.presentation) &&
+        presentationHasBody(document.presentation.cellSymbol),
+    ) ||
+    items(project.externalSubcircuitDefinitions).some((definition) =>
+      presentationHasBody(definition.presentation),
+    ) ||
+    items(project.componentDefinitions).some(artworkHasBody) ||
+    items(project.modelSources).some(
+      (source) =>
+        isRecord(source.draft) &&
+        items(source.draft.authoring).some(
+          (candidate) =>
+            presentationHasBody(candidate.presentation) ||
+            artworkHasBody(candidate.lastValidArtwork) ||
+            (isRecord(candidate.legacyRepair) &&
+              artworkHasBody(candidate.legacyRepair.baseline)),
+        ),
+    )
+  );
+}
+
 export function tryValidateProject(input: unknown): ProjectLoadResult {
   return checkedProject(CircuitProjectSchema.safeParse(input));
 }
@@ -216,6 +249,37 @@ export function tryParseProjectWithMetadata(
 
   let current: Record<string, unknown>;
   try {
+    if (sourceSchemaVersion < 74 && hasExplicitCellBody(parsed))
+      throw new ProjectFormatError([
+        {
+          code: "INVALID_PROJECT",
+          message: "An explicit Cell symbol body requires Project schema 74",
+          path: ["schemaVersion"],
+        },
+      ]);
+    if (
+      sourceSchemaVersion < 73 &&
+      Array.isArray(parsed.documents) &&
+      parsed.documents.some(
+        (document: unknown) =>
+          isRecord(document) &&
+          Array.isArray(document.junctions) &&
+          document.junctions.some(
+            (junction: unknown) =>
+              isRecord(junction) &&
+              (Object.hasOwn(junction, "styleOverride") ||
+                Object.hasOwn(junction, "contactAnchor") ||
+                junction.role === "style-anchor"),
+          ),
+      )
+    )
+      throw new ProjectFormatError([
+        {
+          code: "INVALID_PROJECT",
+          path: ["documents"],
+          message: "Junction colors require Project schema 73",
+        },
+      ]);
     if (
       sourceSchemaVersion < 72 &&
       Array.isArray(parsed.documents) &&

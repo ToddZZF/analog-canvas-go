@@ -10,6 +10,26 @@ const file = (path: string, text: string) => ({
   bytes: new TextEncoder().encode(text),
 });
 describe("Spectre import conversion", () => {
+  it("keeps native Spectre repair advice for a recognizable include without an SCS extension", async () => {
+    const inputs = [
+      file("entry.scs", 'simulator lang=spectre\ninclude "leaf.inc"\n'),
+      file("leaf.inc", "simulator lang=spectre\nQ1 (c b e) mystery\n"),
+    ];
+    const prepared = prepareImportSources(inputs);
+    const result = await importSpiceSources(
+      prepared.inputs,
+      "entry.scs",
+      {},
+      { originalSources: inputs },
+    );
+    expect(
+      result.diagnostics.find(
+        (item) => item.code === "SPICE_IMPORT_UNSUPPORTED_SYMBOL",
+      )?.message,
+    ).toBe(
+      'Q1 uses model mystery, which no model statement declares, so its device type is unknown. Add "model mystery bjt type=npn" or "model mystery bjt type=pnp".',
+    );
+  });
   it.each(["unreferenced file", "inactive branch"])(
     "keeps an author's Cell when an %s defines a built-in of the same name",
     async (location) => {

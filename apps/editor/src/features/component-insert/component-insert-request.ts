@@ -27,6 +27,12 @@ export interface VddRailInsertRequest {
   netName: string;
 }
 
+export interface NoConnectInsertRequest {
+  kind: "no-connect";
+  symbolId: "no-connect";
+  symbolName: "No Connect";
+}
+
 export interface DrawingToolInsertRequest {
   kind: "drawing-tool";
   symbolId: string;
@@ -91,6 +97,7 @@ export type ComponentInsertRequest =
   | CellInsertRequest
   | ExternalSubcircuitInsertRequest
   | VddRailInsertRequest
+  | NoConnectInsertRequest
   | DrawingToolInsertRequest
   | PolarityAnnotationInsertRequest
   | DraftTextAnnotationInsertRequest;

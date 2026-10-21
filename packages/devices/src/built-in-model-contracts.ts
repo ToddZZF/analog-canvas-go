@@ -6,8 +6,10 @@ import type {
 import { IDEAL_COMPARATOR_TARGET } from "./contract.js";
 import {
   HIGH_LEVEL_PARAMETER,
-  IDEAL_COMPARATOR_SUPPLY_TARGET,
+  DIFFERENTIAL_COMPARATOR_TARGET,
   idealComparatorBodyPorts,
+  idealComparatorModelTarget,
+  idealComparatorReadsSupply,
   SUPPLY_HIGH_LEVEL,
   type IdealComparatorBody,
 } from "./ideal-comparator.js";
@@ -45,6 +47,7 @@ export type BuiltInModelRecipe =
         | "nor"
         | "xor"
         | "xnor"
+        | "delay"
         | "flip-flop";
     }
   | {
@@ -154,6 +157,19 @@ const logic = [
     "One-pole output delay; not a digital event propagation delay.",
   ),
 ];
+const delay = [
+  logic[0]!,
+  {
+    ...parameter(
+      "tpd",
+      "Propagation delay",
+      "10p",
+      "s",
+      "Nominal 50% propagation delay for a settled full-swing step. RC state with logic regeneration; narrow pulses may be suppressed, not pure transport delay.",
+    ),
+    expressions: false,
+  },
+].map((definition) => ({ ...definition, expressions: false }));
 // The ideal comparator's export checks that each level is a number, so none
 // takes an expression in braces.
 const comparator: readonly DeviceParameterDefinition[] = [
@@ -228,6 +244,7 @@ const recipes: Readonly<Record<string, BuiltInModelRecipe>> = {
   dac: { family: "signal", implementation: "quantizer" },
   inverter: { family: "logic", implementation: "inverter" },
   buffer: { family: "logic", implementation: "buffer" },
+  delay_cell: { family: "logic", implementation: "delay" },
   ...Object.fromEntries(
     (["and", "nand", "or", "nor", "xor", "xnor"] as const).flatMap(
       (implementation) =>
@@ -241,6 +258,10 @@ const recipes: Readonly<Record<string, BuiltInModelRecipe>> = {
   d_flip_flop_q: { family: "logic", implementation: "flip-flop" },
   d_flip_flop_reset: { family: "logic", implementation: "flip-flop" },
   [IDEAL_COMPARATOR_TARGET]: {
+    family: "comparator",
+    implementation: "comparator",
+  },
+  [DIFFERENTIAL_COMPARATOR_TARGET]: {
     family: "comparator",
     implementation: "comparator",
   },
@@ -263,12 +284,17 @@ function contract(target: string): BuiltInModelContract | undefined {
     // its VDD high level chooses adds VDD (ideal-comparator.ts). Its
     // historical five-port external master is not a generated model.
     ports:
-      target === IDEAL_COMPARATOR_TARGET
-        ? idealComparatorBodyPorts(IDEAL_COMPARATOR_TARGET, descriptor.ports)
+      family === "comparator"
+        ? idealComparatorBodyPorts(
+            target as IdealComparatorBody,
+            descriptor.ports,
+          )
         : descriptor.ports,
     parameters:
       family === "logic"
-        ? logic
+        ? implementation === "delay"
+          ? delay
+          : logic
         : family === "comparator"
           ? comparator
           : family === "opamp"
@@ -344,8 +370,8 @@ const NUMERIC_BODY_HIGH_LEVEL = "1";
 export function idealComparatorBodyContract(
   body: IdealComparatorBody,
 ): IdealComparatorBodyContract {
-  const model = builtInModelContract(IDEAL_COMPARATOR_TARGET)!;
-  const readsSupply = body === IDEAL_COMPARATOR_SUPPLY_TARGET;
+  const model = builtInModelContract(idealComparatorModelTarget(body))!;
+  const readsSupply = idealComparatorReadsSupply(body);
   const descriptor = builtInSubcircuitDescriptors.find(
     (candidate) => candidate.symbolId === model.symbolId,
   )!;

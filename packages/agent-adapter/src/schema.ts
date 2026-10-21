@@ -8,6 +8,7 @@ import {
   LayoutConstraintSchema,
   LayoutGroupSchema,
   JunctionRoleSchema,
+  JunctionStyleOverrideSchema,
   NoConnectSchema,
   NetPowerDomainSchema,
   PlacementSchema,
@@ -31,6 +32,7 @@ import {
   SimulationCircuitBindingSchema,
   SimulationInputPathSchema,
   ProjectModelSourceSchema,
+  TerminalRefSchema,
 } from "@icm/model";
 import { ObjectLocatorSchema, HierarchyFrameSchema } from "@icm/derived";
 import {
@@ -574,6 +576,8 @@ const AgentSnapshotJunctionSchema = z.strictObject({
   netId: AgentSnapshotLogicalNetIdSchema,
   position: PointSchema,
   role: JunctionRoleSchema.optional(),
+  styleOverride: JunctionStyleOverrideSchema.optional(),
+  contactAnchor: TerminalRefSchema.optional(),
 });
 
 const AgentSnapshotNoConnectSchema = NoConnectSchema;

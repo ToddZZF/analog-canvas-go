@@ -354,11 +354,21 @@ export function planSetDeviceModelTarget(
         JSON.stringify(binding)
       )
         return [];
+      const defaults = builtInModelDefaults(gate.target);
+      // A Delay Cell's formal names may overlap the formula's names, but
+      // their meanings need not. Returning to the formula resets its contract.
+      const resetDelay = sourceSymbolId === "delay-cell";
       const set = Object.fromEntries(
-        Object.entries(builtInModelDefaults(gate.target)).filter(
-          ([name]) => instance.netlist!.parameters[name] === undefined,
+        Object.entries(defaults).filter(
+          ([name]) =>
+            resetDelay || instance.netlist!.parameters[name] === undefined,
         ),
       );
+      const unset = resetDelay
+        ? Object.keys(instance.netlist.parameters).filter(
+            (name) => !Object.hasOwn(defaults, name),
+          )
+        : [];
       return [
         transactDocument(project, documentId, [
           {
@@ -368,6 +378,7 @@ export function planSetDeviceModelTarget(
                 instanceId,
                 binding,
                 ...(Object.keys(set).length ? { set } : {}),
+                ...(unset.length ? { unset } : {}),
               },
             ],
           },

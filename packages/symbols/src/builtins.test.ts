@@ -15,6 +15,7 @@ const PRODUCT_IDS = [
   "capacitor",
   "closed-switch",
   "comparator",
+  "comparator-differential",
   "current-source",
   "vccs",
   "cccs",
@@ -100,6 +101,9 @@ describe("built-in Symbol libraries", () => {
     const browsable = new Set(razaviProductSymbols.map((symbol) => symbol.id));
     for (const id of [
       "comparator-inputs-swapped",
+      "comparator-differential-inputs-swapped",
+      "comparator-differential-unmarked",
+      "comparator-differential-unmarked-inputs-swapped",
       "differential-transconductance-inputs-swapped",
       "opamp-inputs-swapped",
       "opamp-lettered-inputs-swapped",

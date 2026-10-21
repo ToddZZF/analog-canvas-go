@@ -15,6 +15,15 @@ import type {
   SpiceSyntaxFile,
 } from "./syntax.js";
 
+/** Whether a source is native Spectre, by its extension or its first lines. */
+export function isSpectreSource(input: SpiceSourceInput): boolean {
+  const prefix = new TextDecoder().decode(input.bytes.subarray(0, 512));
+  return (
+    /\.scs$/iu.test(input.path) ||
+    /^\s*(?:simulator\s+lang\s*=\s*spectre|subckt\s)/imu.test(prefix)
+  );
+}
+
 export function normalizeSourcePath(path: string): string | null {
   const replaced = path.replaceAll("\\", "/").replace(/^\.\//u, "");
   if (

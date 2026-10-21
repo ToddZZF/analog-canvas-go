@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 import { isOnlineImplementation } from "./desktop-module-policy";
+import { lockedCanvasPackage } from "./rnl-canvas-package";
 
 export interface OfflineComposition {
   entry: string;
@@ -13,7 +14,9 @@ export interface OfflineComposition {
  * desktop preview shell and the Go local server both serve this bundle.
  * Web routes, telemetry and the service worker never boot, and the
  * online-module guard hard-errors if any cloud implementation reaches the
- * output, so the offline promise stays enforced at build time.
+ * output, so the offline promise stays enforced at build time. The vendored
+ * Canvas package bytes are verified here too, so every offline composition
+ * ships the locked asset.
  */
 export function createOfflineComposition(composition: OfflineComposition) {
   return defineConfig({
@@ -27,6 +30,7 @@ export function createOfflineComposition(composition: OfflineComposition) {
     envPrefix: [],
     define: { "import.meta.env.ICM_DESKTOP": "true" },
     plugins: [
+      lockedCanvasPackage(),
       react(),
       {
         name: "desktop-module-evidence",

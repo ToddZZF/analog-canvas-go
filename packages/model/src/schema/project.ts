@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cellSymbolPinContainmentProblems } from "../cell-symbol-layout.js";
 import {
   ComponentDefinitionSchema,
   ComponentLibraryOriginSchema,
@@ -47,32 +48,51 @@ const ExternalSubcircuitFormalParameterSchema = z.strictObject({
   name: z.string().min(1).max(128),
   defaultValue: z.string().min(1).max(1024).optional(),
 });
-export const ExternalSubcircuitDefinitionSchema = z.strictObject({
-  id: StableIdSchema,
-  name: z.string().min(1).max(128),
-  /** Automatic artwork has no captured class; publication origin belongs to its owner. */
-  libraryOrigin: ComponentLibraryOriginSchema.optional(),
-  terminals: z.array(ExternalSubcircuitTerminalSchema).max(128),
-  formalParameters: z.array(ExternalSubcircuitFormalParameterSchema).max(128),
-  /** Imported positional interfaces are valid, but remain visibly provisional. */
-  interfaceStatus: z.enum(["declared", "inferred-positional"]),
-  presentation: CellSymbolPresentationSchema.optional(),
-  /** Preferred artwork for new occurrences; captured peers keep their own ID. */
-  symbolId: StableIdSchema.optional(),
-  implementation: z
-    .discriminatedUnion("kind", [
-      z.strictObject({
-        kind: z.literal("source"),
-        sourceId: StableIdSchema,
-        entry: z.string().min(1).max(128),
-      }),
-      z.strictObject({
-        kind: z.literal("placeholder"),
-        sourceId: StableIdSchema.optional(),
-      }),
-    ])
-    .optional(),
-});
+export const ExternalSubcircuitDefinitionSchema = z
+  .strictObject({
+    id: StableIdSchema,
+    name: z.string().min(1).max(128),
+    /** Automatic artwork has no captured class; publication origin belongs to its owner. */
+    libraryOrigin: ComponentLibraryOriginSchema.optional(),
+    terminals: z.array(ExternalSubcircuitTerminalSchema).max(128),
+    formalParameters: z.array(ExternalSubcircuitFormalParameterSchema).max(128),
+    /** Imported positional interfaces are valid, but remain visibly provisional. */
+    interfaceStatus: z.enum(["declared", "inferred-positional"]),
+    presentation: CellSymbolPresentationSchema.optional(),
+    /** Preferred artwork for new occurrences; captured peers keep their own ID. */
+    symbolId: StableIdSchema.optional(),
+    implementation: z
+      .discriminatedUnion("kind", [
+        z.strictObject({
+          kind: z.literal("source"),
+          sourceId: StableIdSchema,
+          entry: z.string().min(1).max(128),
+        }),
+        z.strictObject({
+          kind: z.literal("placeholder"),
+          sourceId: StableIdSchema.optional(),
+        }),
+      ])
+      .optional(),
+  })
+  .superRefine((definition, context) => {
+    for (const [index, pin] of (
+      definition.presentation?.pinPlacements ?? []
+    ).entries())
+      if (
+        !definition.terminals.some((terminal) => terminal.id === pin.terminalId)
+      )
+        context.addIssue({
+          code: "custom",
+          message: `Cell symbol placement references unknown terminal: ${pin.terminalId}`,
+          path: ["presentation", "pinPlacements", index, "terminalId"],
+        });
+    for (const message of cellSymbolPinContainmentProblems(
+      definition.terminals,
+      definition.presentation,
+    ))
+      context.addIssue({ code: "custom", message, path: ["presentation"] });
+  });
 
 export const CircuitProjectSchema = z
   .strictObject({

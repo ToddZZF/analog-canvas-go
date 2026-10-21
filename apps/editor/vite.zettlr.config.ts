@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
 import { isOnlineImplementation } from "./build/desktop-module-policy";
+import { lockedCanvasPackage } from "./build/rnl-canvas-package";
 
 /**
  * The bundle a note application embeds.
@@ -25,6 +26,7 @@ export default defineConfig({
   envPrefix: [],
   define: { "import.meta.env.ICM_DESKTOP": "true" },
   plugins: [
+    lockedCanvasPackage(),
     react(),
     {
       name: "desktop-module-evidence",

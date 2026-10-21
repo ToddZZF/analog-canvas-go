@@ -607,6 +607,19 @@ export function proposePaste(
         junctionId: junctionIds.get(junction.id)!,
         netId,
         position: movePoint(junction.position, offset),
+        ...(junction.role ? { role: junction.role } : {}),
+        ...(junction.contactAnchor &&
+        instanceIds.has(junction.contactAnchor.instanceId)
+          ? {
+              contactAnchor: {
+                ...junction.contactAnchor,
+                instanceId: instanceIds.get(junction.contactAnchor.instanceId)!,
+              },
+            }
+          : {}),
+        ...(junction.styleOverride
+          ? { styleOverride: structuredClone(junction.styleOverride) }
+          : {}),
         ...(junction.documentStyle
           ? { documentStyle: structuredClone(junction.documentStyle) }
           : {}),

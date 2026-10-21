@@ -116,6 +116,7 @@ export interface UseComponentPlacementOptions {
   paintSnapGuides: (guides: []) => void;
   beginVddRailInteraction: (netName: string) => void;
   activateDrawingTool: (tool: DrawingTool) => void;
+  activateNoConnectTool: () => void;
   beginComponentPlacement: (request: PendingComponentPlacement) => void;
   beginDraftingTextEditing: (
     object: Extract<DraftingObject, { kind: "text" }>,
@@ -845,6 +846,10 @@ export function useComponentPlacement(options: UseComponentPlacementOptions) {
     setInsertDialogOpen(false);
     setInsertScope("all");
     setInsertInitialSelectionId(null);
+    if (request.kind === "no-connect") {
+      options.activateNoConnectTool();
+      return;
+    }
     if (request.kind === "drawing-tool") {
       options.activateDrawingTool(request.tool);
       options.setStatus(

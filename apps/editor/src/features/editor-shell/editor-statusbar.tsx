@@ -16,6 +16,7 @@ function toolLabel(
   if (pendingSymbolId) return `Placing ${pendingSymbolId}`;
   if (tool === "pointer") return "Select";
   if (tool === "construction-line") return "Line";
+  if (tool === "no-connect") return "NoConn";
   return tool.charAt(0).toUpperCase() + tool.slice(1);
 }
 
@@ -28,6 +29,7 @@ function toolTitle(
   if (pendingSymbolId) return `Placing ${pendingSymbolId} on the canvas`;
   if (tool === "pointer") return "Select objects on the canvas";
   if (tool === "construction-line") return "Draw a construction line";
+  if (tool === "no-connect") return "Active tool: No Connect";
   return `Active tool: ${toolLabel(tool, false, null)}`;
 }
 

@@ -64,7 +64,7 @@ describe("RNL shapes", () => {
     expect(slanted.points.at(-1)).toEqual(slanted.points[0]);
   });
 
-  it("takes a symbol's lines, outlines and circles, but not an SVG path", () => {
+  it("takes a symbol's lines, outlines, circles and straight SVG paths", () => {
     expect(
       symbolShapes([
         { kind: "line", from: { x: 0, y: 0 }, to: { x: 10, y: 0 } },
@@ -101,6 +101,30 @@ describe("RNL shapes", () => {
       },
       { shape: "circle", points: [[0, 0]], params: { radius: 0.5 } },
     ]);
-    expect(symbolShapes([{ kind: "path", data: "M 0 0 L 10 0" }])).toBeNull();
+    expect(symbolShapes([{ kind: "path", data: "M 0 0 L 10 0" }])).toEqual([
+      {
+        shape: "line",
+        points: [
+          [0, 0],
+          [1, 0],
+        ],
+      },
+    ]);
+    expect(
+      symbolShapes([{ kind: "path", data: "M 0 0 L 10 0 L 0 10 Z" }]),
+    ).toEqual([
+      {
+        shape: "line",
+        points: [
+          [0, 0],
+          [1, 0],
+          [0, -1],
+          [0, 0],
+        ],
+      },
+    ]);
+    expect(
+      symbolShapes([{ kind: "path", data: "M 0 0 C 1 2 3 4 5 6" }]),
+    ).toBeNull();
   });
 });

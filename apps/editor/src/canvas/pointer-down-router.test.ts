@@ -36,6 +36,55 @@ const facts = (
 });
 
 describe("who owns one press on the canvas", () => {
+  it("selects a generated dot without displacing moves, verbs, probes or group gestures", () => {
+    const junctionDotEndpoint = {
+      kind: "terminal" as const,
+      instanceId: "R1",
+      pinName: "1",
+    };
+    const dot = { junctionDotEndpoint };
+    expect(resolvePointerDownAction(facts(dot))).toEqual({
+      kind: "select-endpoint",
+      endpoint: junctionDotEndpoint,
+    });
+    expect(resolvePointerDownAction(facts({ ...dot, hit: null }))).toEqual({
+      kind: "select-endpoint",
+      endpoint: junctionDotEndpoint,
+    });
+    expect(
+      resolvePointerDownAction(
+        facts({ ...dot, interactionKind: "moving-selection" }),
+      ).kind,
+    ).toBe("begin-visual-selection-move");
+    expect(
+      resolvePointerDownAction(facts({ ...dot, armedVerbConsumesHit: true }))
+        .kind,
+    ).toBe("consume-armed-verb");
+    expect(
+      resolvePointerDownAction(
+        facts({
+          ...dot,
+          compositeSelectionOwnsHit: true,
+          primaryInstanceId: "R2",
+        }),
+      ),
+    ).toEqual({ kind: "begin-instance-move", instanceId: "R2" });
+    expect(
+      resolvePointerDownAction(
+        facts({ ...dot, simulationPickMode: "terminal" }),
+      ).kind,
+    ).toBe("ignore");
+    expect(
+      resolvePointerDownAction(facts({ ...dot, controlPickMode: "net" })).kind,
+    ).toBe("ignore");
+    expect(
+      resolvePointerDownAction(facts({ ...dot, placementOwnsCanvas: true }))
+        .kind,
+    ).toBe("ignore");
+    expect(resolvePointerDownAction(facts({ ...dot, tool: "wire" })).kind).toBe(
+      "gesture-passthrough",
+    );
+  });
   it("hands each hit kind to the domain that owns it", () => {
     expect(resolvePointerDownAction(facts())).toEqual({
       kind: "begin-instance-move",

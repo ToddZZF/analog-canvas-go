@@ -4847,6 +4847,7 @@
   },
   {
     "symbol": "$DELAY_CELL_SYMBOL",
+    "import_only": true,
     "definition": "$DELAY_CELL",
     "package": "rnl-std-logic",
     "ac": "delay-cell",

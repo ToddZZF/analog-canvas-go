@@ -33,7 +33,9 @@
 }
 
 .schematic-canvas.drawing-mode,
-.schematic-canvas.drawing-mode * {
+.schematic-canvas.drawing-mode *,
+.schematic-canvas.no-connect-mode,
+.schematic-canvas.no-connect-mode * {
   cursor: crosshair;
 }
 

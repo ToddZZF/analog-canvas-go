@@ -25,6 +25,11 @@ const LazyItemPropertySummary = lazy(() =>
     default: module.ItemPropertySummary,
   })),
 );
+const JunctionColorProperties = lazy(() =>
+  import("../properties/property-editors").then((module) => ({
+    default: module.JunctionColorProperties,
+  })),
+);
 function ItemPropertySummary(props: {
   item: ItemPropertyIdentity;
   color: string;
@@ -53,8 +58,7 @@ export function MosBulkConnectionSection({
 }) {
   if (connection === null) return null;
   const { terminal, netName, status } = connection;
-  const label =
-    netName ?? (status === "no-connect" ? "No Connect" : "Unconnected");
+  const label = netName ?? (status === "no-connect" ? "NoConn" : "Unconnected");
   const origin = {
     explicit: "Explicit connection",
     "cell-default": "Cell default",
@@ -63,7 +67,7 @@ export function MosBulkConnectionSection({
     "no-connect": "Intentionally left unconnected",
     unresolved: "Choose a net for the bulk terminal",
   }[status];
-  const description = `${terminal} → ${label} · ${origin}${
+  const description = `${terminal} → ${status === "no-connect" ? "No Connect" : label} · ${origin}${
     explicitRouteVisible ? " · Dashed bulk route shown" : ""
   }`;
   return (
@@ -253,6 +257,7 @@ export function EndpointActionsSection({
   onDeleteConnection,
   onToggleNoConnect,
   onDeleteJunction,
+  junctionColor,
 }: {
   item?: WireSource | null;
   color?: string;
@@ -263,27 +268,53 @@ export function EndpointActionsSection({
   onDeleteConnection: () => void;
   onToggleNoConnect: () => void;
   onDeleteJunction: () => void;
+  junctionColor?: {
+    color: string;
+    onApply(color: string): { ok: boolean; message?: string };
+  };
 }) {
+  const junctionProperties =
+    item && junctionColor ? (
+      <Suspense fallback={<p role="status">Loading properties…</p>}>
+        <JunctionColorProperties
+          item={{
+            type: "junction",
+            name:
+              item.endpoint.kind === "junction"
+                ? item.endpoint.junctionId
+                : `${item.endpoint.instanceId}.${item.endpoint.pinName}`,
+            coordinate: [
+              item.connection.contactPoint.x,
+              item.connection.contactPoint.y,
+            ],
+          }}
+          color={junctionColor.color}
+          inheritedColor={color}
+          onApply={junctionColor.onApply}
+        />
+      </Suspense>
+    ) : null;
   if (kind === "junction")
     return (
       <section className="context-actions" aria-label="Junction actions">
         <h2>Junction</h2>
-        {item && (
-          <ItemPropertySummary
-            item={{
-              type: "junction",
-              name:
-                item.endpoint.kind === "junction"
-                  ? item.endpoint.junctionId
-                  : "",
-              coordinate: [
-                item.connection.contactPoint.x,
-                item.connection.contactPoint.y,
-              ],
-            }}
-            color={color}
-          />
-        )}
+        {junctionProperties ??
+          (item && (
+            <ItemPropertySummary
+              item={{
+                type: "junction",
+                name:
+                  item.endpoint.kind === "junction"
+                    ? item.endpoint.junctionId
+                    : "",
+                coordinate: [
+                  item.connection.contactPoint.x,
+                  item.connection.contactPoint.y,
+                ],
+              }}
+              color={color}
+            />
+          ))}
         <button type="button" onClick={onDeleteJunction}>
           Delete junction and attached wires
         </button>
@@ -293,22 +324,23 @@ export function EndpointActionsSection({
   return (
     <section className="context-actions" aria-label="Endpoint actions">
       <h2>Endpoint</h2>
-      {item && (
-        <ItemPropertySummary
-          item={{
-            type: "terminal",
-            name:
-              item.endpoint.kind === "terminal"
-                ? `${item.endpoint.instanceId}.${item.endpoint.pinName}`
-                : "",
-            coordinate: [
-              item.connection.contactPoint.x,
-              item.connection.contactPoint.y,
-            ],
-          }}
-          color={color}
-        />
-      )}
+      {junctionProperties ??
+        (item && (
+          <ItemPropertySummary
+            item={{
+              type: "terminal",
+              name:
+                item.endpoint.kind === "terminal"
+                  ? `${item.endpoint.instanceId}.${item.endpoint.pinName}`
+                  : "",
+              coordinate: [
+                item.connection.contactPoint.x,
+                item.connection.contactPoint.y,
+              ],
+            }}
+            color={color}
+          />
+        ))}
       <button type="button" onClick={onDisconnect}>
         Disconnect endpoint
       </button>
@@ -319,8 +351,9 @@ export function EndpointActionsSection({
         type="button"
         onClick={onToggleNoConnect}
         disabled={!noConnect && endpointNetId !== null}
+        title={noConnect ? "Clear No Connect" : "Mark No Connect"}
       >
-        {noConnect ? "Clear No Connect" : "Mark No Connect"}
+        {noConnect ? "Clear NoConn" : "Mark NoConn"}
       </button>
       {!noConnect && endpointNetId ? (
         <small>Disconnect this endpoint before marking No Connect.</small>

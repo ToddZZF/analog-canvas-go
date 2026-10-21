@@ -666,9 +666,32 @@ function translate(s: Statement, ctx: Context): string[] {
       return [out];
     }
     if (head === "model") {
+      const native = f[2]?.toLowerCase();
+      if (native === "bjt" || native === "diode") {
+        // Reviewed export subset: the classical junction (IS, N) and
+        // Gummel-Poon bipolar (IS, BF, VAF) parameters have the same names
+        // and units in SPICE. Other native model options remain unreviewed.
+        const p = parameters(f.slice(3), s);
+        const type =
+          native === "diode" ? "d" : take(p, "type", s).toLowerCase();
+        if (native === "bjt" && type !== "npn" && type !== "pnp")
+          refuse(s, "A bjt model needs type=npn or type=pnp.");
+        const allowed = native === "diode" ? ["is", "n"] : ["is", "bf", "vaf"];
+        const mapped: Parameters = new Map();
+        for (const key of allowed) {
+          const entry = p.get(key);
+          if (entry) {
+            mapped.set(key, entry);
+            p.delete(key);
+          }
+        }
+        noParameters(p, s);
+        return [
+          `.model ${f[1]} ${type}${mapped.size ? " " + emitParameters(mapped, s) : ""}`,
+        ];
+      }
       // Spectre's BSIM4, as a netlist this editor hands out defines a MOS
-      // stand-in: SPICE's BSIM4 is level 54. No other native model has a
-      // reviewed mapping.
+      // stand-in: SPICE's BSIM4 is level 54. Other native models remain unreviewed.
       if (f[2]?.toLowerCase() !== "bsim4")
         refuse(s, `Unsupported native Spectre model ${f[2] ?? ""}.`);
       const p = parameters(f.slice(3), s);
@@ -951,9 +974,13 @@ export function convertNetlist(
         s.dialect === "spectre" &&
         f[0]?.toLowerCase() === "model" &&
         f[1] &&
-        f[2]?.toLowerCase() === "bsim4"
-      )
-        ctx.models.set(f[1].toLowerCase(), "M");
+        f[2]
+      ) {
+        const designator = { bsim4: "M", bjt: "Q", diode: "D" }[
+          f[2].toLowerCase()
+        ];
+        if (designator) ctx.models.set(f[1].toLowerCase(), designator);
+      }
     }
     const out = [
       target === "spectre"

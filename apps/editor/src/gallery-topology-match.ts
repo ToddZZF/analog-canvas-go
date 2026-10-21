@@ -8,6 +8,7 @@ import {
 import { parseProject } from "@icm/project-protocol";
 import { dailyOpenLimitMessage, type GalleryFeedEntry } from "./gallery-client";
 import { closeTopologyMatches } from "./gallery-topology-selection";
+import { withoutReservedEntries } from "./gallery-reserved-ids";
 
 export interface GalleryTopologyMatch extends TopologyCorrespondence {
   entry: GalleryFeedEntry;
@@ -121,6 +122,7 @@ export async function scanGalleryTopologyMatches(
       if (!Array.isArray(page.entries))
         throw new Error("Invalid Gallery response");
       report.total = page.total ?? report.total;
+      page.entries = withoutReservedEntries(page.entries);
       for (let offset = 0; offset < page.entries.length; offset += 3) {
         const batch = page.entries
           .slice(offset, offset + 3)

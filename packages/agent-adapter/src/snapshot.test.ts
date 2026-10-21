@@ -37,6 +37,40 @@ function fixtureProject(): CircuitProject {
 }
 
 describe("Agent Document Snapshot", () => {
+  it("reads and edits an independent Junction color through the native contract", () => {
+    const project = fixtureProject();
+    const document = project.documents[0]!;
+    document.junctions.push({
+      id: "colored-J",
+      netId: document.nets[0]!.id,
+      position: { x: 400, y: 200 },
+    });
+    const before = buildAgentSessionSnapshot({ project, document, resolver });
+    const edit = AgentSchematicEditSchema.parse({
+      kind: "set_junction_style_override",
+      target: { kind: "junction", junctionId: "colored-J" },
+      styleOverride: { color: "#CC2244" },
+    });
+    const result = executeTransaction(document, {
+      transactionId: "agent-dot-color",
+      documentId: document.id,
+      expectedRevision: document.revision,
+      actor: { kind: "agent", id: "test" },
+      edits: [edit],
+    });
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    const after = buildAgentSessionSnapshot({
+      project,
+      document: result.document,
+      resolver,
+    });
+    expect(AgentSessionSnapshotSchema.parse(after)).toEqual(after);
+    expect(
+      after.document.junctions.find((j) => j.id === "colored-J"),
+    ).toMatchObject({ styleOverride: { color: "#CC2244" } });
+    expect(after.electricalTopologyHash).toBe(before.electricalTopologyHash);
+  });
   it("leaves out the Document style a copied object keeps", () => {
     const project = fixtureProject();
     const document = project.documents[0]!;

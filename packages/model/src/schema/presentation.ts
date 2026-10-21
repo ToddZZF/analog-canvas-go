@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cellSymbolPinFitsBody } from "../cell-symbol-layout.js";
 
 import { StableIdSchema } from "./common.js";
 
@@ -15,7 +16,7 @@ export const CellSymbolPinPlacementSchema = z.strictObject({
   /** Stable formal-terminal identity; never a mutable pin name. */
   terminalId: StableIdSchema,
   side: CellSymbolSideSchema,
-  /** Signed symbol-local distance from the body centre along `side`. */
+  /** Signed symbol-local distance from the stable origin along `side`. */
   offset: z
     .number()
     .int()
@@ -45,10 +46,64 @@ const CellSymbolBodySizeSchema = z.strictObject({
  * Definition-level hierarchy block intent. The renderer derives artwork and
  * pin coordinates from this compact data; callers never persist a copy.
  */
-export const CellSymbolPresentationSchema = z.strictObject({
-  minimumBodySize: CellSymbolBodySizeSchema.optional(),
-  pinPlacements: z.array(CellSymbolPinPlacementSchema).max(256).optional(),
+const CellSymbolCoordinateSchema = z.number().int().refine(symbolGridMultiple, {
+  message: "Cell symbol bounds must align to the 10-unit connection grid",
 });
+
+const CellSymbolBodyBoundsSchema = z
+  .strictObject({
+    left: CellSymbolCoordinateSchema,
+    right: CellSymbolCoordinateSchema,
+    top: CellSymbolCoordinateSchema,
+    bottom: CellSymbolCoordinateSchema,
+  })
+  .refine(
+    (bounds) =>
+      bounds.right - bounds.left >= 20 && bounds.bottom - bounds.top >= 20,
+    {
+      message: "Cell symbol body must be at least 20 units wide and high",
+    },
+  );
+
+export const CellSymbolPresentationSchema = z
+  .strictObject({
+    minimumBodySize: CellSymbolBodySizeSchema.optional(),
+    /** Explicit edited edges; never fitted to text or recentered. */
+    bodyBounds: CellSymbolBodyBoundsSchema.optional(),
+    pinPlacements: z.array(CellSymbolPinPlacementSchema).max(256).optional(),
+  })
+  .superRefine((presentation, context) => {
+    const terminals = new Set<string>(),
+      slots = new Set<string>();
+    for (const [index, pin] of (presentation.pinPlacements ?? []).entries()) {
+      if (terminals.has(pin.terminalId))
+        context.addIssue({
+          code: "custom",
+          path: ["pinPlacements", index, "terminalId"],
+          message: `Cell symbol terminal is placed more than once: ${pin.terminalId}`,
+        });
+      const slot = `${pin.side}:${pin.offset}`;
+      if (slots.has(slot))
+        context.addIssue({
+          code: "custom",
+          path: ["pinPlacements", index],
+          message: `Cell symbol pin slot is occupied: ${slot}`,
+        });
+      terminals.add(pin.terminalId);
+      slots.add(slot);
+    }
+    const bounds = presentation.bodyBounds;
+    if (!bounds) return;
+    for (const [index, pin] of (presentation.pinPlacements ?? []).entries()) {
+      if (!cellSymbolPinFitsBody(pin, bounds))
+        context.addIssue({
+          code: "custom",
+          path: ["pinPlacements", index, "offset"],
+          message:
+            "Cell symbol pin must stay inside its edge, 10 units from a corner",
+        });
+    }
+  });
 
 /**
  * Bounded per-document scale factor over the resolved style profile. The

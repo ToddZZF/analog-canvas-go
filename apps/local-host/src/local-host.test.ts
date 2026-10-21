@@ -36,6 +36,9 @@ describe("portable local host", () => {
         ),
       ).toBe("application/wasm");
       expect(response.headers.get("cache-control")).toBe("no-cache");
+      expect(response.headers.get("cross-origin-opener-policy")).toBe(
+        "same-origin-allow-popups",
+      );
       expect(await (await fetch(`${running.origin}/healthz`)).json()).toEqual({
         status: "ok",
         version: "0.9.2",

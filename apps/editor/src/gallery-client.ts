@@ -1,5 +1,6 @@
 import type { GalleryOrder } from "./gallery-order";
 import type { GalleryAttention } from "../../../worker/gallery-curation";
+import { withoutReservedEntries } from "./gallery-reserved-ids";
 
 export { localhostExamplesEnabled } from "./gallery-source";
 
@@ -546,7 +547,7 @@ export async function loadGalleryFeed(
                   ...entry,
                 }) as GalleryFeedEntry,
             )
-          : (payload.entries ?? []),
+          : withoutReservedEntries(payload.entries ?? []),
       nextCursor:
         typeof payload.nextCursor === "string" ? payload.nextCursor : null,
       total: typeof payload.total === "number" ? payload.total : null,

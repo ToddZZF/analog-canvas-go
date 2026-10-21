@@ -22,12 +22,14 @@ import {
   createCellDocument,
   createId,
   CircuitProjectSchema,
+  CellSymbolPresentationSchema,
   semanticTextDocument,
   foldNetName,
   projectCellInterface,
 } from "@icm/model";
 import type {
   Annotation,
+  CellSymbolPresentation,
   CircuitProject,
   ExternalSubcircuitDefinition,
   PortLabelFormatOptions,
@@ -651,6 +653,13 @@ export function createProjectStructureCommands({
     presentation: NonNullable<BlockSymbolLayoutTarget["presentation"]>,
   ): ProjectStructureEdit[] => {
     if (target.kind === "cell") {
+      if (
+        project.documents.find((cell) => cell.id === target.ownerId)
+          ?.revision !== target.revision
+      )
+        throw new Error(
+          "Cell layout changed during this gesture. Nothing was changed.",
+        );
       return planSetCellSymbolPresentation(
         project,
         target.ownerId,
@@ -661,12 +670,36 @@ export function createProjectStructureCommands({
       (item) => item.id === target.ownerId,
     );
     if (!definition) throw new Error("External definition no longer exists");
+    if (project.structureRevision !== target.revision)
+      throw new Error(
+        "Project changed during this gesture. Nothing was changed.",
+      );
     return [
       {
         kind: "upsert_external_subcircuit_definition",
         definition: { ...definition, presentation },
       },
     ];
+  };
+
+  const setCellSymbolPresentation = (
+    target: BlockSymbolLayoutTarget,
+    presentation: CellSymbolPresentation,
+  ): void => {
+    try {
+      const checked = CellSymbolPresentationSchema.parse(presentation);
+      if (
+        commitStructure(
+          "edit-cell-symbol-layout",
+          saveBlockSymbolPresentation(target, checked),
+        )
+      )
+        setStatus(`Updated ${target.name} layout in every parent instance`);
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Could not update Cell layout",
+      );
+    }
   };
 
   const setCellSymbolBodySize = (
@@ -685,19 +718,32 @@ export function createProjectStructureCommands({
       setStatus("Cell symbol size must use positive 10-unit grid values");
       return;
     }
-    const current = child.presentation;
-    if (
-      commitStructure(
-        "resize-cell-symbol",
-        saveBlockSymbolPresentation(child, {
-          ...(current?.pinPlacements
-            ? { pinPlacements: current.pinPlacements }
-            : {}),
-          minimumBodySize: { width, height },
-        }),
-      )
-    ) {
-      setStatus(`Resized ${child.name} symbol for every parent instance`);
+    try {
+      const current = child.presentation;
+      if (
+        commitStructure(
+          "resize-cell-symbol",
+          saveBlockSymbolPresentation(child, {
+            ...current,
+            ...(current?.bodyBounds
+              ? {
+                  bodyBounds: {
+                    ...current.bodyBounds,
+                    right: current.bodyBounds.left + width,
+                    bottom: current.bodyBounds.top + height,
+                  },
+                }
+              : {}),
+            minimumBodySize: { width, height },
+          }),
+        )
+      ) {
+        setStatus(`Resized ${child.name} symbol for every parent instance`);
+      }
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Could not resize Cell symbol",
+      );
     }
   };
 
@@ -783,6 +829,7 @@ export function createProjectStructureCommands({
     setExternalSubcircuitDefinition,
     removeExternalSubcircuitDefinition,
     setCellSymbolBodySize,
+    setCellSymbolPresentation,
     setCellSymbolPortPlacement,
     renameProject,
   };

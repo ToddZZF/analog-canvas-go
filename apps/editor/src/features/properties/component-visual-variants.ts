@@ -38,6 +38,11 @@ for (const [plain, lettered] of BODY_MARK_PAIRS) {
 const POLARITY_PAIRS = [
   ["comparator", "comparator-unmarked"],
   ["comparator-inputs-swapped", "comparator-unmarked-inputs-swapped"],
+  ["comparator-differential", "comparator-differential-unmarked"],
+  [
+    "comparator-differential-inputs-swapped",
+    "comparator-differential-unmarked-inputs-swapped",
+  ],
 ] as const;
 
 const polarityVariants = new Map<

@@ -61,6 +61,7 @@ const COMPACT_LIBRARY_LABELS: Readonly<Record<string, string>> = {
   "variable-inductor": "Var Ind",
   "variable-resistor": "Var Res",
   vdd: "VDD Rail",
+  "no-connect": "NoConn",
   "vdd-port": "VDD",
   "voltage-amplifier": "V Amp",
   "voltage-source": "V Src",
@@ -105,6 +106,8 @@ export function quickPlaceRequest(
 ): ComponentInsertRequest | null {
   const symbol = findPaletteSymbol(styleProfileId, symbolId);
   if (!symbol) return null;
+  if (symbolId === "no-connect")
+    return { kind: "no-connect", symbolId, symbolName: "No Connect" };
   const drawingTool = annotationDrawingTool(symbolId);
   if (drawingTool) {
     return {

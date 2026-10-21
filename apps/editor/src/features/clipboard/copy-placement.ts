@@ -10,6 +10,7 @@ import type {
 } from "@icm/model";
 import type { SymbolResolver } from "@icm/symbols";
 import { createEmptyDocument, routeBends } from "@icm/model";
+import { resolveEndpointConnection } from "@icm/derived";
 
 import {
   applyOrientationOperations,
@@ -132,7 +133,7 @@ export function orientClipboard(
       : transformed;
   };
   const flipsWorldX = mapVector({ x: 1, y: 0 }).x < 0;
-  return {
+  const oriented: SchematicClipboard = {
     ...clipboard,
     instances: clipboard.instances.map((instance) => ({
       ...structuredClone(instance),
@@ -305,6 +306,24 @@ export function orientClipboard(
       return clone;
     }),
   };
+  if (labels) {
+    const scratch: SchematicDocument = {
+      ...createEmptyDocument("copy-placement", "Copy placement"),
+      presentation: labels.presentation,
+      instances: oriented.instances,
+      nets: oriented.nets,
+      junctions: oriented.junctions,
+    };
+    for (const junction of oriented.junctions) {
+      if (!junction.contactAnchor) continue;
+      const connection = resolveEndpointConnection(scratch, labels.resolver, {
+        kind: "terminal",
+        ...junction.contactAnchor,
+      });
+      if (connection) junction.position = { ...connection.gridLanding };
+    }
+  }
+  return oriented;
 }
 
 /**

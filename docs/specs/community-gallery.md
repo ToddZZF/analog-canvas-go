@@ -44,14 +44,31 @@ restrictive CSP.
 ## Crawlers, AI and floods
 
 - `robots.txt` states the usage policy (occasional manual use of single
-  circuits is welcome; bulk collection, scraping or AI training needs the
-  site author's permission, zzhishuai@ethz.ch), closes the site to AI
+  circuits is welcome; bulk collection, scraping, mirroring or AI training
+  without the site author's permission, zzhishuai@ethz.ch, is strictly
+  prohibited, detected and blocked at once, and answered with a lawyer's
+  letter), closes the site to AI
   training and answer-engine crawlers (`worker/usage-policy.ts`), and asks
   everyone else for `Content-Signal: search=yes, ai-train=no` with
   `Disallow: /g/`. A user's own assistant fetching one page is not refused.
   `llms.txt` states the same policy to AI agents and lists no resource while
   public Gallery documents are off; `sitemap.xml` stays 404. The Agent's
   Gallery tool description carries the same sentence.
+- Trap circuits (`worker/gallery-traps.ts`): a signed-in member's list page
+  (`GET /api/gallery`, six circuits or more) carries one circuit whose id is
+  reserved (`apps/editor/src/gallery-reserved-ids.ts`). The client drops
+  reserved ids and no real circuit gets one, so only a program walking the
+  list reads it. The Owner, curators, moderators, AI seats and the read
+  credential meet none; to them a trap id is `404`.
+- Any request under a trap id blocks the member's account (AuthDO
+  `account_blocks`, matched by account or email); it is answered like an
+  ordinary circuit. Every later `/api/gallery` request of the account is
+  `403 {"error":"account-blocked","usage":…}`. The record keeps the email,
+  display name, sign-in method, time, path, IP address, country and user
+  agent, and outlives an unblock and the account. The Owner is emailed at
+  once (Resend, to the usage contact); the scheduled pass resends an unsent
+  notice. Owner only: `GET /api/auth/blocked` lists the records, and
+  `POST /api/auth/blocked/unblock {userId}` (same origin) lifts a block.
 - `/api/*` has a flood limit of 1200 requests a minute per client address
   (Workers rate limiting, `API_RATE_LIMITER`). Past it:
   `429 {"error":"too-many-requests","retryAfterSeconds":60,"usage":…}` with
@@ -336,12 +353,22 @@ simulator, reason?, folders}` with per-Spec condition, value, unit and
   an opened copy publishes as a new community entry.
 - `GET /api/gallery/sources` → `{sources: [... , count]}`; readers see non-empty
   datasets, Owner accounts all.
-- `POST /api/gallery/sources/<key>/entries` (same-origin, Owner account, else 403
-  `owner-only`): `{entries: [{id, name, description?, tags?, projectText,
+- `POST /api/gallery/sources/<key>/entries` (the Owner's same-origin session,
+  or `Authorization: Bearer <Owner token>` without the same-origin check; 401
+  without either, 403 `owner-only` once the account is no longer an Owner
+  account): `{entries: [{id, name, description?, tags?, projectText,
 createdAt?}]}` (≤10), validated like submissions with the prefix
   (`invalid-id`); existing ids are replaced in place (version kept); per-entry
-  `{id, ok, created, previewRevision}` or `{id, ok: false, error}`. It runs from
-  the Owner's browser, so no new secret exists.
+  `{id, ok, created, previewRevision}` or `{id, ok: false, error}`. Imports
+  post from the CLI with `pnpm gallery:import-batches … --post`
+  ([Batch drawing](../agent/batch-drawing.md)).
+- Owner tokens (#1769): one labelled token per machine for that import; no
+  other route accepts one, and a token does not expire until it is revoked.
+  The Owner's same-origin session (else 401/403) mints one
+  with `POST /api/auth/owner-tokens {label}` → `{id, label, token, createdAt}`
+  (`acot_…`, shown once; AuthDO keeps its SHA-256), lists them with
+  `GET /api/auth/owner-tokens` → `{tokens: [{id, label, createdAt,
+lastUsedAt}]}`, and revokes one with `DELETE /api/auth/owner-tokens/<id>`.
 
 ## Accounts and sessions
 
@@ -368,12 +395,13 @@ tokens and codes are stored.
   versions, likes, daily-open records and Cloud Projects;
   ComponentLibraryDO its components; AnalogArena unlinks its Voter
   ([Account deletion](analog-arena.md#account-deletion)); AuthDO last removes
-  sessions, codes, counters and the row. A failing step answers 503 leaving the
+  sessions, Owner tokens, codes, counters and the row. A failing step answers 503 leaving the
   account signed in; steps are idempotent. Reply
   `{deleted: {circuits, likes, projects, components}}`.
 - Super-admin is computed per request from `ADMIN_EMAILS` ∪ `ADMIN_EMAILS_EXTRA`
   (comma-separated, case-insensitive). The session cookie is the only write
-  credential.
+  credential, except an Owner token on the dataset import
+  ([Reference datasets](#reference-datasets)).
 
 ### AI seats
 

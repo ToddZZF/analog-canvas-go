@@ -6,6 +6,7 @@ import {
 } from "@icm/netlist";
 import { parseProject } from "@icm/project-protocol";
 import type { GalleryFeedEntry } from "./gallery-client";
+import { withoutReservedEntries } from "./gallery-reserved-ids";
 
 export interface GalleryDuplicateReport {
   scanned: number;
@@ -61,6 +62,7 @@ export async function scanGalleryDuplicates(
       if (!Array.isArray(page.entries))
         throw new Error("Invalid Gallery response");
       report.total = page.total ?? report.total;
+      page.entries = withoutReservedEntries(page.entries);
       // Bound network concurrency and retain deterministic processing order.
       for (let offset = 0; offset < page.entries.length; offset += 3) {
         const batch = page.entries

@@ -19,6 +19,10 @@ Primary owners: `packages/model`, `packages/edit-engine`, `packages/derived`
   bend), whatever its historical role. Rail, MOS bulk and locked geometry stay
   out of the union. Overlapping styles: largest coverage wins, Route ID breaks
   ties.
+- A [Junction color override](visual-language.md#style-overrides) owns its
+  Junction through conductor normalization. An unreferenced styled Junction at
+  a terminal contact travels when all of that contact's pins travel together;
+  separating pins retains the existing direct-contact stretch behavior.
 - An explicit cross-Net Wire connection merges compatible Base Nets first;
   passive geometry never merges Nets.
 - Opening a portable file normalizes an imported copy and marks it dirty; Cloud

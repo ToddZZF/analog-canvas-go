@@ -46,6 +46,9 @@ import {
   annotationOwningInstanceId,
   deriveProjectNetNameProjection,
   deriveRoutingAffectedClosure,
+  contactRequiresJunctionDot,
+  endpointKey,
+  junctionForContact,
   diagnosticPresentationGroup,
   runErcChecks,
   resolveDraftingObjectGeometry,
@@ -131,6 +134,10 @@ import {
 } from "../canvas/canvas-gesture-controller";
 import { createEditorCanvasEventHandlers } from "../canvas/editor-canvas-event-handlers";
 import {
+  NoConnectPlacementPreview,
+  useNoConnectPlacement,
+} from "../features/no-connect/no-connect-placement";
+import {
   canvasPointFromClient,
   logicalRadiusForCanvasPixels,
   replaceCanvasSnapGuides,
@@ -156,6 +163,7 @@ import {
 import { terminalCurrentDirectionPartners } from "../features/simulation/terminal-current-pick";
 import { PUBLIC_SIMULATION_UI_ENABLED } from "../features/simulation/public-simulation-ui";
 import { useCellSymbolLayout } from "../features/hierarchy/use-cell-symbol-layout";
+import { CellSymbolLayoutToolbar } from "../features/hierarchy/cell-symbol-layout-toolbar";
 import { selectedBlockSymbolTarget } from "../features/hierarchy/block-symbol-layout-target";
 import { cellInsertLaunch } from "../features/component-insert/insert-launch";
 import { useComponentPlacement } from "../features/component-insert/use-component-placement";
@@ -1391,6 +1399,8 @@ function WorkspaceEditor({
     useState<DraftingHandlePreview | null>(null);
   const snapGuideLayerRef = useRef<SVGGElement | null>(null);
   const {
+    state: interactionState,
+    setCellSymbolLayout: setCellSymbolLayoutSession,
     getCurrentState: getCurrentInteractionState,
     tool,
     pendingSymbolId,
@@ -1463,6 +1473,15 @@ function WorkspaceEditor({
     document.id,
   );
   const documentContactEvidence = documentConnectivity?.contactEvidence;
+  const junctionDotEndpointKeys = useMemo(
+    () =>
+      new Set(
+        documentContactEvidence?.contacts
+          .filter(contactRequiresJunctionDot)
+          .flatMap((contact) => contact.endpoints.map(endpointKey)) ?? [],
+      ),
+    [documentContactEvidence],
+  );
   const [interfaceConfirmation, setInterfaceConfirmation] = useState<{
     request: CellInterfaceConfirmation;
     snapshot: typeof project;
@@ -1492,6 +1511,7 @@ function WorkspaceEditor({
     setExternalSubcircuitDefinition,
     removeExternalSubcircuitDefinition,
     setCellSymbolBodySize,
+    setCellSymbolPresentation,
     setCellSymbolPortPlacement,
     editCellTerminalAnnotation,
     removeCellTerminalSelection,
@@ -1862,6 +1882,17 @@ function WorkspaceEditor({
     )
       setControlPickState(null);
   }, [selectedInstance?.id]);
+  const selectedContact = selectedEndpoint
+    ? documentContactEvidence?.byEndpointKey.get(
+        endpointKey(selectedEndpoint.endpoint),
+      )
+    : undefined;
+  const selectedContactJunction = selectedContact
+    ? junctionForContact(
+        selectedContact,
+        new Map(document.junctions.map((j) => [j.id, j])),
+      )
+    : undefined;
   const selectedAnnotationOwnerInstanceId = selectedAnnotation
     ? annotationOwningInstanceId(selectedAnnotation)
     : undefined;
@@ -2309,15 +2340,47 @@ function WorkspaceEditor({
     beginDrag: beginCellSymbolLayoutDrag,
     previewDrag: previewCellSymbolLayoutDrag,
     completeDrag: completeCellSymbolLayoutDrag,
+    selectedTerminalIds: layoutSelectedTerminalIds,
+    actionPreview: cellLayoutActionPreview,
+    warnings: cellLayoutWarnings,
+    previewAction: previewCellLayoutAction,
+    applyAction: applyCellLayoutAction,
+    handleKeyDown: handleCellLayoutKeyDown,
   } = useCellSymbolLayout({
+    project,
+    document,
     selectedInstance,
-    target: selectedBlockLayout,
     resolver,
-    selectionOpen,
+    session:
+      interactionState.kind === "cell-symbol-layout" ? interactionState : null,
+    getSession: getCurrentInteractionState,
+    setSession: setCellSymbolLayoutSession,
+    cancelInteraction,
     canvasPointFromEvent: (event) =>
-      pointFromClient(event.clientX, event.clientY, event.currentTarget),
-    setBodySize: setCellSymbolBodySize,
-    setPortPlacement: setCellSymbolPortPlacement,
+      pointFromClient(event.clientX, event.clientY, event.currentTarget, false),
+    save: setCellSymbolPresentation,
+    report: setStatus,
+    startWire: (instanceId, pinName) => {
+      const source = visibleEndpoints.find(
+        (item) =>
+          item.endpoint.kind === "terminal" &&
+          item.endpoint.instanceId === instanceId &&
+          item.endpoint.pinName === pinName,
+      );
+      if (!source) {
+        setStatus("Cell pin no longer has a routable endpoint");
+        return;
+      }
+      activateTool("wire");
+      setWireSource(source, document.revision);
+      setWirePreview({
+        kind: "endpoint",
+        point: source.connection.contactPoint,
+        source,
+      });
+      setWireDraftSteps([]);
+      setStatus(`Wire source: ${instanceId}.${pinName}`);
+    },
   });
   const {
     netLabelForRoute,
@@ -2609,13 +2672,17 @@ function WorkspaceEditor({
   );
   const internalSelection = useMemo(
     () =>
-      deriveRoutingAffectedClosure(document, {
-        instanceIds: selectedIds,
-        routeIds: visualSelection.routeIds,
-        junctionIds: visualSelection.junctionIds,
-        annotationIds: visualSelection.annotationIds,
-      }),
-    [document, selectedIds, visualSelection],
+      deriveRoutingAffectedClosure(
+        document,
+        {
+          instanceIds: selectedIds,
+          routeIds: visualSelection.routeIds,
+          junctionIds: visualSelection.junctionIds,
+          annotationIds: visualSelection.annotationIds,
+        },
+        { resolver },
+      ),
+    [document, selectedIds, visualSelection, resolver],
   );
   const wouldMoveIds = useMemo(() => {
     const ids = new Set(
@@ -2834,6 +2901,7 @@ function WorkspaceEditor({
     paintSnapGuides,
     beginVddRailInteraction,
     activateDrawingTool: setTool,
+    activateNoConnectTool: () => activateTool("no-connect"),
     beginComponentPlacement: (request) => {
       beginComponentPlacement(request);
       seedComponentPreviewFromPointer(request.kind);
@@ -3011,6 +3079,7 @@ function WorkspaceEditor({
     rotateCommandMove: rotateCommandMoveFromSelection,
     selectInstance: selectInstanceFromSelection,
     toggleSelectedNoConnect: toggleSelectedNoConnectFromSelection,
+    markEndpointNoConnect,
     updateCommandMovePreview: updateCommandMovePreviewFromSelection,
   } = useSelectionInteraction({
     project,
@@ -3773,13 +3842,11 @@ function WorkspaceEditor({
   }
 
   function closeProperties(): void {
-    exitCellSymbolLayout();
     setSelectionOpen(false);
     setImportReviewOpen(false);
   }
 
   function showProjectPanel(mode: EditorProjectPanelMode): void {
-    exitCellSymbolLayout();
     if (projectPanel === null) {
       propertiesOpenBeforeProjectPanelRef.current =
         selectionOpen && !documentSettingsOpen;
@@ -4102,6 +4169,7 @@ function WorkspaceEditor({
     const currentInteraction = getCurrentInteractionState();
     const alreadyActive =
       (nextTool === "wire" && currentInteraction.kind === "wire") ||
+      (nextTool === "no-connect" && currentInteraction.kind === "no-connect") ||
       (currentInteraction.kind === "drawing" &&
         currentInteraction.tool === nextTool) ||
       (nextTool === "pointer" && currentInteraction.kind === "idle");
@@ -4123,19 +4191,21 @@ function WorkspaceEditor({
     setStatus(
       nextTool === "wire"
         ? "Wire: choose a pin, junction, route segment, or blank grid point"
-        : nextTool === "rectangle"
-          ? "Rectangle: click the first corner"
-          : nextTool === "circle"
-            ? "Circle: click the center"
-            : nextTool === "arrow"
-              ? arrowPreset.family === "outline"
-                ? "Outline arrow: click to place, or drag to size (Esc cancels)"
-                : "Arrow: click the start point"
-              : nextTool === "polyline"
-                ? "Polyline: click vertices; double-click or Enter to finish"
-                : nextTool === "construction-line"
-                  ? "Construction line: click the start point"
-                  : "Pointer ready",
+        : nextTool === "no-connect"
+          ? "No Connect: move near a pin and click to mark · Esc exits"
+          : nextTool === "rectangle"
+            ? "Rectangle: click the first corner"
+            : nextTool === "circle"
+              ? "Circle: click the center"
+              : nextTool === "arrow"
+                ? arrowPreset.family === "outline"
+                  ? "Outline arrow: click to place, or drag to size (Esc cancels)"
+                  : "Arrow: click the start point"
+                : nextTool === "polyline"
+                  ? "Polyline: click vertices; double-click or Enter to finish"
+                  : nextTool === "construction-line"
+                    ? "Construction line: click the start point"
+                    : "Pointer ready",
     );
   }
 
@@ -4577,6 +4647,7 @@ function WorkspaceEditor({
       saveByHand,
       setWireOptionsOpen,
       getCurrentInteractionState,
+      handleCellLayoutKeyDown,
       tool,
       wireSource,
       wirePreviewPoint,
@@ -4627,7 +4698,16 @@ function WorkspaceEditor({
     }),
   });
 
+  const noConnectPlacement = useNoConnectPlacement({
+    active: tool === "no-connect",
+    document,
+    viewBox,
+    endpoints: visibleEndpoints,
+    mark: markEndpointNoConnect,
+    report: setStatus,
+  });
   const canvasEventHandlers = createEditorCanvasEventHandlers({
+    noConnectPlacement,
     model: { tool, document, resolver, selectionPolicy },
     session: {
       interactionKind: () => getCurrentInteractionState().kind,
@@ -5673,12 +5753,10 @@ function WorkspaceEditor({
               open={selectionOpen}
               shelfRef={selectionShelfRef}
               onToggle={() => {
-                if (selectionOpen) {
-                  exitCellSymbolLayout();
-                }
                 // Narrow layouts have room for one side panel. Whichever the user
                 // just asked for wins.
-                else if (compactLayout) setCompactLibraryPanelOpen(false);
+                if (!selectionOpen && compactLayout)
+                  setCompactLibraryPanelOpen(false);
                 setSelectionOpen((current) => !current);
                 if (selectionOpen) setImportReviewOpen(false);
               }}
@@ -6628,6 +6706,30 @@ function WorkspaceEditor({
                 onDeleteConnection: () => disconnectSelectedEndpoint(true),
                 onToggleNoConnect: toggleSelectedNoConnectFromSelection,
                 onDeleteJunction: deleteSelectedJunctionFromSelection,
+                ...(selectedEndpoint &&
+                (selectedEndpoint.endpoint.kind === "junction" ||
+                  (selectedContact &&
+                    contactRequiresJunctionDot(selectedContact)))
+                  ? {
+                      junctionColor: {
+                        color:
+                          selectedContactJunction?.styleOverride?.color ??
+                          "auto",
+                        onApply: (color: string) => {
+                          const result = transact([
+                            {
+                              kind: "set_junction_style_override",
+                              target: selectedEndpoint.endpoint,
+                              styleOverride:
+                                color === "auto" ? null : { color },
+                            },
+                          ]);
+                          if (result.ok) setStatus("Updated junction color");
+                          return { ok: result.ok };
+                        },
+                      },
+                    }
+                  : {}),
               }}
               annotationActions={{
                 kind:
@@ -6755,6 +6857,7 @@ function WorkspaceEditor({
           onPinch={zoomAtClientPoint}
           className={[
             "schematic-canvas",
+            tool === "no-connect" ? "no-connect-mode" : "",
             tool === "wire" ? "wire-mode" : "",
             pendingSymbolId || vddRailMode || copyPlacement
               ? "component-mode"
@@ -6780,6 +6883,9 @@ function WorkspaceEditor({
             .join(" ")}
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
           eventHandlers={canvasEventHandlers}
+          noConnectPreview={
+            <NoConnectPlacementPreview target={noConnectPlacement.preview} />
+          }
           grid={{ visible: gridDotsVisible, viewBox }}
           sceneInnerHtml={sceneInnerHtml}
           selectionHalo={{
@@ -6804,6 +6910,10 @@ function WorkspaceEditor({
               ? {
                   placement: selectedCellSymbolLayout.instance.placement!,
                   body: selectedCellSymbolLayout.body,
+                  viewBounds: viewBox,
+                  selectedTerminalIds: layoutSelectedTerminalIds,
+                  activeDragPointerId: cellSymbolLayoutDragPointerId,
+                  actionPreview: cellLayoutActionPreview,
                   pins: selectedCellSymbolLayout.pins.map(
                     ({ terminal, pin }) => ({
                       terminalId: terminal.id,
@@ -6815,6 +6925,18 @@ function WorkspaceEditor({
                   onDragCancel: cancelCellSymbolLayoutDrag,
                 }
               : null
+          }
+          cellSymbolLayoutControls={
+            selectedCellSymbolLayout ? (
+              <CellSymbolLayoutToolbar
+                name={selectedCellSymbolLayout.target.name}
+                selectedTerminalIds={layoutSelectedTerminalIds}
+                warnings={cellLayoutWarnings}
+                onPreview={previewCellLayoutAction}
+                onApply={applyCellLayoutAction}
+                onDone={exitCellSymbolLayout}
+              />
+            ) : null
           }
           netHighlight={{
             highlight: shownNetHighlight,
@@ -7076,6 +7198,7 @@ function WorkspaceEditor({
               selectedRouteSegmentIndex,
               selectedEndpoint,
               supplementalJunctionIds: supplementalSelection.junctionIds,
+              junctionDotEndpointKeys,
               selectionPolicy:
                 simulationPickActive || controlPickState
                   ? unfilteredSelectionPolicy

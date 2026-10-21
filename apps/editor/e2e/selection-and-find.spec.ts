@@ -419,7 +419,9 @@ test("rechecks resolved diagnostics and invalidates them through undo", async ({
 
   for (const pinName of ["1", "2"]) {
     await page.getByTestId(`terminal-R1-${pinName}`).click({ button: "right" });
-    await page.getByRole("button", { name: "Mark No Connect" }).click();
+    await page
+      .getByRole("button", { name: "Mark NoConn", exact: true })
+      .click();
   }
   await expect(issues).toHaveText("Check out of date");
   await expect(page.locator(".diagnostic-marker")).toHaveCount(0);

@@ -20,8 +20,11 @@ describe("shapes quick-place", () => {
       }),
     );
 
-    expect(symbols).toHaveLength(76);
+    expect(symbols).toHaveLength(78);
     expect(markup).toContain("All devices");
+    expect(markup).toContain('aria-label="Place NoConn"');
+    expect(markup).toContain(">NoConn</span>");
+    expect(markup).toContain("No Connect: mark intentionally unused pins");
     expect(markup.match(/data-testid="shapes-chip-/g)).toHaveLength(
       symbols.length,
     );
@@ -34,10 +37,10 @@ describe("shapes quick-place", () => {
     ).toEqual([
       ["Transistors", 4],
       ["Passives", 4],
-      ["Power and Ports", 6],
+      ["Power and Ports", 7],
       ["Sources", 6],
       ["Switches", 7],
-      ["Analog Blocks", 10],
+      ["Analog Blocks", 11],
       ["Logic Gates", 12],
       ["Signal Flow", 6],
       ["Annotations", 9],

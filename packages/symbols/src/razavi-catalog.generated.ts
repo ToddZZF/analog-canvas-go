@@ -353,6 +353,98 @@ export const razaviSymbolCatalogEntries: readonly RazaviSymbolCatalogEntry[] = [
     },
   },
   {
+    symbolId: "comparator-differential",
+    name: "Fully Differential Comparator",
+    category: "analog-block",
+    reviewStatus: "reviewed",
+    provenance: "house",
+    houseReason:
+      "User-requested complementary-output extension of the existing comparator using the shared differential triangle; no exact textbook witness is claimed.",
+    pinOrder: ["IN+", "IN-", "OUT+", "OUT-"],
+    palette: true,
+    automaticMappings: [],
+    manualOnlyReason:
+      "Ideal complementary-output comparator; an external implementation may be selected explicitly.",
+    assetPath: "comparator-differential.json",
+    assetHash:
+      "4484d4513ffb4b448e5dc426647e5f5de48aae72aa13f55367321edf72fe6b78",
+    generation: {
+      kind: "derived-differential-comparator",
+      sourceSymbolId: "comparator",
+      converterPath: "scripts/generate-razavi-opamp-asset.mjs",
+      converterVersion: 1,
+    },
+  },
+  {
+    symbolId: "comparator-differential-inputs-swapped",
+    name: "Fully Differential Comparator (swapped inputs)",
+    category: "analog-block",
+    reviewStatus: "reviewed",
+    provenance: "house",
+    houseReason:
+      "User-requested complementary-output extension of the existing comparator using the shared differential triangle; no exact textbook witness is claimed.",
+    pinOrder: ["IN+", "IN-", "OUT+", "OUT-"],
+    palette: false,
+    automaticMappings: [],
+    manualOnlyReason:
+      "Ideal complementary-output comparator; an external implementation may be selected explicitly.",
+    assetPath: "comparator-differential-inputs-swapped.json",
+    assetHash:
+      "20a409c5fa21fbbeb944e0ba6217fe2e0b37debe3f171684872710ced6e63c95",
+    generation: {
+      kind: "derived-input-swap",
+      sourceSymbolId: "comparator-differential",
+      converterPath: "scripts/generate-input-swapped-amplifiers.mjs",
+      converterVersion: 1,
+    },
+  },
+  {
+    symbolId: "comparator-differential-unmarked",
+    name: "Fully Differential Comparator (unmarked)",
+    category: "analog-block",
+    reviewStatus: "reviewed",
+    provenance: "house",
+    houseReason:
+      "User-requested complementary-output extension of the existing comparator using the shared differential triangle; no exact textbook witness is claimed.",
+    pinOrder: ["IN+", "IN-", "OUT+", "OUT-"],
+    palette: false,
+    automaticMappings: [],
+    manualOnlyReason:
+      "Ideal complementary-output comparator; an external implementation may be selected explicitly.",
+    assetPath: "comparator-differential-unmarked.json",
+    assetHash:
+      "5aaa6fb16f3d50b932bd911f680510cf39f95ad60522133506b0c1618e50de69",
+    generation: {
+      kind: "derived-differential-comparator",
+      sourceSymbolId: "comparator",
+      converterPath: "scripts/generate-razavi-opamp-asset.mjs",
+      converterVersion: 1,
+    },
+  },
+  {
+    symbolId: "comparator-differential-unmarked-inputs-swapped",
+    name: "Fully Differential Comparator (unmarked) (swapped inputs)",
+    category: "analog-block",
+    reviewStatus: "reviewed",
+    provenance: "house",
+    houseReason:
+      "User-requested complementary-output extension of the existing comparator using the shared differential triangle; no exact textbook witness is claimed.",
+    pinOrder: ["IN+", "IN-", "OUT+", "OUT-"],
+    palette: false,
+    automaticMappings: [],
+    manualOnlyReason:
+      "Ideal complementary-output comparator; an external implementation may be selected explicitly.",
+    assetPath: "comparator-differential-unmarked-inputs-swapped.json",
+    assetHash:
+      "95d00fa99730fba09afe0b76409e828bdb20363919f874af2b90b605961b5dd2",
+    generation: {
+      kind: "derived-input-swap",
+      sourceSymbolId: "comparator-differential-unmarked",
+      converterPath: "scripts/generate-input-swapped-amplifiers.mjs",
+      converterVersion: 1,
+    },
+  },
+  {
     symbolId: "current-source",
     name: "Independent Current Source",
     category: "source",
@@ -518,7 +610,7 @@ export const razaviSymbolCatalogEntries: readonly RazaviSymbolCatalogEntry[] = [
     palette: true,
     automaticMappings: [],
     manualOnlyReason:
-      "Visual delay-stage block; timing and structural netlist semantics require an explicit implementation mapping.",
+      "Manual placement; noninverting formula propagation delay or an explicit project Cell implementation, not pure transport delay.",
     assetPath: "delay-cell.json",
     assetHash:
       "384d3be7c07eef3a8237cc2d21928b9c9df329b05b6101a1fe4184378a8a42fc",
@@ -4417,6 +4509,984 @@ export const razaviCatalogSymbols: readonly SymbolDefinition[] = [
         part: "hysteresis-step",
         bounds: {
           x: -20.679492,
+          y: -7,
+          width: 16,
+          height: 14,
+        },
+      },
+    ],
+    variants: [],
+  },
+  {
+    schemaVersion: 1,
+    id: "comparator-differential",
+    name: "Fully Differential Comparator",
+    viewBox: {
+      x: -44,
+      y: -34,
+      width: 88,
+      height: 68,
+    },
+    pins: [
+      {
+        name: "IN+",
+        role: "non-inverting-input",
+        at: {
+          x: -40,
+          y: 10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "IN-",
+        role: "inverting-input",
+        at: {
+          x: -40,
+          y: -10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT+",
+        role: "output",
+        at: {
+          x: 30,
+          y: 10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT-",
+        role: "output",
+        at: {
+          x: 30,
+          y: -10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+    ],
+    primitives: [
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: -10,
+        },
+        to: {
+          x: -30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: 10,
+        },
+        to: {
+          x: -30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: -10,
+        },
+        to: {
+          x: 30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: 10,
+        },
+        to: {
+          x: 30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -30 -30 L -30 30 L 21.961524 0 Z",
+        bounds: {
+          x: -30,
+          y: -30,
+          width: 51.961524,
+          height: 60,
+        },
+        style: {
+          strokeRole: "emphasis",
+          lineCap: "butt",
+          lineJoin: "miter",
+          miterLimit: 4,
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -23.75,
+          y: 11,
+        },
+        to: {
+          x: -23.75,
+          y: 17,
+        },
+        part: "input-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -26.75,
+          y: 14,
+        },
+        to: {
+          x: -20.75,
+          y: 14,
+        },
+        part: "input-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -26.75,
+          y: -14,
+        },
+        to: {
+          x: -20.75,
+          y: -14,
+        },
+        part: "upright-input-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -13.538476,
+          y: 11,
+        },
+        to: {
+          x: -13.538476,
+          y: 17,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: 14,
+        },
+        to: {
+          x: -10.538476,
+          y: 14,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: -14,
+        },
+        to: {
+          x: -10.538476,
+          y: -14,
+        },
+        part: "upright-output-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -18.038476 7 L -10.038476 7 L -10.038476 -7 L -2.0384759999999993 -7",
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+        part: "hysteresis-step",
+        bounds: {
+          x: -18.038476,
+          y: -7,
+          width: 16,
+          height: 14,
+        },
+      },
+    ],
+    variants: [],
+  },
+  {
+    schemaVersion: 1,
+    id: "comparator-differential-inputs-swapped",
+    name: "Fully Differential Comparator (swapped inputs)",
+    viewBox: {
+      x: -44,
+      y: -34,
+      width: 88,
+      height: 68,
+    },
+    pins: [
+      {
+        name: "IN+",
+        role: "non-inverting-input",
+        at: {
+          x: -40,
+          y: -10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "IN-",
+        role: "inverting-input",
+        at: {
+          x: -40,
+          y: 10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT+",
+        role: "output",
+        at: {
+          x: 30,
+          y: 10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT-",
+        role: "output",
+        at: {
+          x: 30,
+          y: -10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+    ],
+    primitives: [
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: -10,
+        },
+        to: {
+          x: -30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: 10,
+        },
+        to: {
+          x: -30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: -10,
+        },
+        to: {
+          x: 30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: 10,
+        },
+        to: {
+          x: 30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -30 -30 L -30 30 L 21.961524 0 Z",
+        bounds: {
+          x: -30,
+          y: -30,
+          width: 51.961524,
+          height: 60,
+        },
+        style: {
+          strokeRole: "emphasis",
+          lineCap: "butt",
+          lineJoin: "miter",
+          miterLimit: 4,
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -23.75,
+          y: -11,
+        },
+        to: {
+          x: -23.75,
+          y: -17,
+        },
+        part: "input-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -26.75,
+          y: -14,
+        },
+        to: {
+          x: -20.75,
+          y: -14,
+        },
+        part: "input-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -26.75,
+          y: 14,
+        },
+        to: {
+          x: -20.75,
+          y: 14,
+        },
+        part: "upright-input-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -13.538476,
+          y: 11,
+        },
+        to: {
+          x: -13.538476,
+          y: 17,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: 14,
+        },
+        to: {
+          x: -10.538476,
+          y: 14,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: -14,
+        },
+        to: {
+          x: -10.538476,
+          y: -14,
+        },
+        part: "upright-output-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -18.038476 7 L -10.038476 7 L -10.038476 -7 L -2.0384759999999993 -7",
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+        part: "hysteresis-step",
+        bounds: {
+          x: -18.038476,
+          y: -7,
+          width: 16,
+          height: 14,
+        },
+      },
+    ],
+    variants: [],
+  },
+  {
+    schemaVersion: 1,
+    id: "comparator-differential-unmarked",
+    name: "Fully Differential Comparator (unmarked)",
+    viewBox: {
+      x: -44,
+      y: -34,
+      width: 88,
+      height: 68,
+    },
+    pins: [
+      {
+        name: "IN+",
+        role: "non-inverting-input",
+        at: {
+          x: -40,
+          y: 10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "IN-",
+        role: "inverting-input",
+        at: {
+          x: -40,
+          y: -10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT+",
+        role: "output",
+        at: {
+          x: 30,
+          y: 10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT-",
+        role: "output",
+        at: {
+          x: 30,
+          y: -10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+    ],
+    primitives: [
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: -10,
+        },
+        to: {
+          x: -30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: 10,
+        },
+        to: {
+          x: -30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: -10,
+        },
+        to: {
+          x: 30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: 10,
+        },
+        to: {
+          x: 30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -30 -30 L -30 30 L 21.961524 0 Z",
+        bounds: {
+          x: -30,
+          y: -30,
+          width: 51.961524,
+          height: 60,
+        },
+        style: {
+          strokeRole: "emphasis",
+          lineCap: "butt",
+          lineJoin: "miter",
+          miterLimit: 4,
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -13.538476,
+          y: 11,
+        },
+        to: {
+          x: -13.538476,
+          y: 17,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: 14,
+        },
+        to: {
+          x: -10.538476,
+          y: 14,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: -14,
+        },
+        to: {
+          x: -10.538476,
+          y: -14,
+        },
+        part: "upright-output-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -18.038476 7 L -10.038476 7 L -10.038476 -7 L -2.0384759999999993 -7",
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+        part: "hysteresis-step",
+        bounds: {
+          x: -18.038476,
+          y: -7,
+          width: 16,
+          height: 14,
+        },
+      },
+    ],
+    variants: [],
+  },
+  {
+    schemaVersion: 1,
+    id: "comparator-differential-unmarked-inputs-swapped",
+    name: "Fully Differential Comparator (unmarked) (swapped inputs)",
+    viewBox: {
+      x: -44,
+      y: -34,
+      width: 88,
+      height: 68,
+    },
+    pins: [
+      {
+        name: "IN+",
+        role: "non-inverting-input",
+        at: {
+          x: -40,
+          y: -10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "IN-",
+        role: "inverting-input",
+        at: {
+          x: -40,
+          y: 10,
+        },
+        direction: "west",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT+",
+        role: "output",
+        at: {
+          x: 30,
+          y: 10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+      {
+        name: "OUT-",
+        role: "output",
+        at: {
+          x: 30,
+          y: -10,
+        },
+        direction: "east",
+        presentation: {
+          visibility: "visible",
+          leadLength: 10,
+        },
+      },
+    ],
+    primitives: [
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: -10,
+        },
+        to: {
+          x: -30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "input-lead",
+        from: {
+          x: -40,
+          y: 10,
+        },
+        to: {
+          x: -30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: -10,
+        },
+        to: {
+          x: 30,
+          y: -10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "line",
+        part: "output-lead",
+        from: {
+          x: 4.641015999999993,
+          y: 10,
+        },
+        to: {
+          x: 30,
+          y: 10,
+        },
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -30 -30 L -30 30 L 21.961524 0 Z",
+        bounds: {
+          x: -30,
+          y: -30,
+          width: 51.961524,
+          height: 60,
+        },
+        style: {
+          strokeRole: "emphasis",
+          lineCap: "butt",
+          lineJoin: "miter",
+          miterLimit: 4,
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -13.538476,
+          y: 11,
+        },
+        to: {
+          x: -13.538476,
+          y: 17,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: 14,
+        },
+        to: {
+          x: -10.538476,
+          y: 14,
+        },
+        part: "output-polarity",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "line",
+        from: {
+          x: -16.538476,
+          y: -14,
+        },
+        to: {
+          x: -10.538476,
+          y: -14,
+        },
+        part: "upright-output-polarity-negative",
+        style: {
+          strokeRole: "normal",
+          lineCap: "round",
+          lineJoin: "round",
+        },
+      },
+      {
+        kind: "path",
+        data: "M -18.038476 7 L -10.038476 7 L -10.038476 -7 L -2.0384759999999993 -7",
+        style: {
+          strokeRole: "normal",
+          lineCap: "butt",
+          lineJoin: "miter",
+        },
+        part: "hysteresis-step",
+        bounds: {
+          x: -18.038476,
           y: -7,
           width: 16,
           height: 14,

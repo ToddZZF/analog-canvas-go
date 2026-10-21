@@ -1,5 +1,10 @@
 export * from "./auth-do";
-import { AUTH_SESSION_COOKIE, type AuthEnv, type SessionUser } from "./auth-do";
+import {
+  AUTH_SESSION_COOKIE,
+  OWNER_TOKEN_PREFIX,
+  type AuthEnv,
+  type SessionUser,
+} from "./auth-do";
 
 function hasSessionCookie(request: Request): boolean {
   const prefix = `${AUTH_SESSION_COOKIE}=`;
@@ -27,6 +32,40 @@ export async function sessionUserOf(
     const response = await env.AUTH.getByName("auth").fetch(
       "https://auth/internal/session-user",
       { headers: { cookie: request.headers.get("Cookie") ?? "" } },
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { user?: SessionUser | null };
+    return payload.user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the request carries `Authorization: Bearer …`. */
+export function hasBearer(request: Request): boolean {
+  return /^Bearer \S/u.test(request.headers.get("Authorization") ?? "");
+}
+
+/**
+ * The account an Owner token (#1769) in `Authorization: Bearer <token>`
+ * belongs to, through the AuthDO. Null for no bearer, an unknown or revoked
+ * token, or any failure. Only the dataset import may call this; the caller
+ * still checks `isOwner`.
+ */
+export async function ownerTokenUserOf(
+  request: Request,
+  env: Partial<AuthEnv>,
+): Promise<SessionUser | null> {
+  // Only an Owner token's prefix is worth waking the AuthDO for.
+  const authorization = request.headers.get("Authorization") ?? "";
+  if (!env.AUTH || !authorization.startsWith(`Bearer ${OWNER_TOKEN_PREFIX}`))
+    return null;
+  try {
+    const response = await env.AUTH.getByName("auth").fetch(
+      "https://auth/internal/owner-token-user",
+      {
+        headers: { authorization },
+      },
     );
     if (!response.ok) return null;
     const payload = (await response.json()) as { user?: SessionUser | null };

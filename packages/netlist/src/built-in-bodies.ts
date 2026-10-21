@@ -7,6 +7,7 @@ import {
   builtInModelContract,
   builtInSubcircuitDescriptors,
   isIdealComparatorBody,
+  idealComparatorModelTarget,
   isIdealOpampBody,
 } from "@icm/devices";
 import type { SpiceBuiltInBody } from "@icm/spice";
@@ -243,7 +244,9 @@ function builtInBody(
   const target = isIdealOpampBody(name)
     ? OPAMP_TARGET
     : isIdealComparatorBody(name)
-      ? "comparator"
+      ? idealComparatorModelTarget(name) === IDEAL_COMPARATOR_TARGET
+        ? "comparator"
+        : idealComparatorModelTarget(name)
       : adderBodySigns(name)
         ? ADDER_TARGET
         : name;
@@ -267,7 +270,7 @@ function builtInBody(
     kind: "subcircuit",
     symbolId: descriptor.symbolId,
     target: isIdealComparatorBody(name)
-      ? IDEAL_COMPARATOR_TARGET
+      ? idealComparatorModelTarget(name)
       : descriptor.target,
     ...(signs?.includes("-")
       ? {

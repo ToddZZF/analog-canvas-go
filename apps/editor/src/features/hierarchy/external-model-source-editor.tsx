@@ -1628,6 +1628,19 @@ export function ExternalModelSourceEditor({
                     ...layoutDefinition,
                     presentation: {
                       ...layoutDefinition.presentation,
+                      ...(layoutDefinition.presentation?.bodyBounds
+                        ? {
+                            bodyBounds: {
+                              ...layoutDefinition.presentation.bodyBounds,
+                              right:
+                                layoutDefinition.presentation.bodyBounds.left +
+                                width,
+                              bottom:
+                                layoutDefinition.presentation.bodyBounds.top +
+                                height,
+                            },
+                          }
+                        : {}),
                       minimumBodySize: { width, height },
                     },
                   })

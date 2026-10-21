@@ -433,10 +433,9 @@ export function extractCell(
   )
     models.push(structuredClone(IDEAL_SWITCH_MODEL));
   // The parts a generic card stands in for, and the Cell then carries it.
-  // SPICE only (VACASK prints them from the SPICE cards). A Spectre export
-  // still names DIODE, NPN and PNP for the reader's libraries to define.
-  // A MOS stand-in goes in either dialect and names its model in any case,
-  // as SPICE reads model names.
+  // Export carries stand-ins in either dialect so they read back. Spectre
+  // runs keep relying on the reader's libraries; SPICE runs carry the cards
+  // (VACASK prints them from the SPICE cards). Names match as SPICE reads them.
   const carryGenericCard = (
     model: DesignNetlistModel,
     deviceClass: DesignNetlistDeviceClass,
@@ -466,11 +465,18 @@ export function extractCell(
     instances,
     diagnostics,
   );
-  const genericDiodes = carryGenericCard(GENERIC_DIODE_MODEL, "diode");
+  const genericDiodes = carryGenericCard(
+    GENERIC_DIODE_MODEL,
+    "diode",
+    !options.run,
+  );
   if (genericDiodes.length)
     reportGenericDiodes(document, genericDiodes, diagnostics);
   const genericBjts = [GENERIC_NPN_MODEL, GENERIC_PNP_MODEL]
-    .map((model) => ({ model, parts: carryGenericCard(model, "bjt") }))
+    .map((model) => ({
+      model,
+      parts: carryGenericCard(model, "bjt", !options.run),
+    }))
     .filter(({ parts }) => parts.length);
   if (genericBjts.length) reportGenericBjts(document, genericBjts, diagnostics);
   // A netlist handed out carries the MOS stand-ins, in either dialect, so it

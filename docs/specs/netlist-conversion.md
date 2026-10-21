@@ -49,6 +49,11 @@ Request `{ text, source, target, fragment }`; `source`/`target` are `spice`,
 - Quoted local includes are kept unopened. SPICE model/library declarations go
   in a `simulator lang=spice` section for SCS (no translation or
   qualification); existing SPICE sections stay SPICE.
+- Native export stand-ins read as SPICE models: `bsim4 type=n|p` as
+  `nmos|pmos level=54`, `bjt type=npn|pnp` with `is`, `bf`, `vaf`, and
+  `diode` with `is`, `n`. The bipolar and diode mappings cover only these
+  classical parameters, with the same units; other native model options
+  are rejected. This is structural interchange, not simulator qualification.
 - Spectre's name escapes are read, since SPICE has none: `Vin\+` is the net
   `Vin+`, `D\<3\>` the bus bit `D<3>`, in node lists, instance, subcircuit
   and port names alike, so the import names a Cell Pin and its Net as the

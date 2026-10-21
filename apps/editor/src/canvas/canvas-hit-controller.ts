@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import type { WireSource } from "@icm/edit-engine";
+import { endpointKey } from "@icm/derived";
 import type { Annotation, DraftingObject, SchematicDocument } from "@icm/model";
 
 import type { EditorTool } from "../interaction/interaction-state";
@@ -168,6 +169,14 @@ export function createCanvasHitController({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const dotKey = (event.target as Element)
+      .closest('.endpoint-hit[data-junction-dot="true"]')
+      ?.getAttribute("data-endpoint-key");
+    const junctionDotEndpoint = visibleEndpoints.find(
+      (candidate) =>
+        endpointKey(candidate.endpoint) === dotKey &&
+        selectionPolicy.allowsEndpoint(candidate.endpoint.kind, "select"),
+    )?.endpoint;
     // A terminal has a more precise electrical identity than the enclosing
     // Instance hit box. Let its own handler pick it before body hit resolution.
     if (
@@ -253,6 +262,7 @@ export function createCanvasHitController({
         ) !== null,
       handleAtPoint,
       hit,
+      junctionDotEndpoint: junctionDotEndpoint ?? null,
       compositeSelectionOwnsHit: compositeOwnsHit,
       // Planning a move is not free, so it is asked for only where the
       // answer can change the outcome.
@@ -278,7 +288,7 @@ export function createCanvasHitController({
     // A claimed hit stops here: the target-phase handlers and the browser's
     // own default must not act on the press as well.
     const hitTarget = (hit?.element ?? event.currentTarget) as SVGElement;
-    if (hit) {
+    if (hit || action.kind === "select-endpoint") {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -332,11 +342,13 @@ export function createCanvasHitController({
         }
         return;
       }
+      case "select-endpoint":
       case "select-junction": {
-        const endpoint = visibleEndpoints.find(
-          (candidate) =>
-            candidate.endpoint.kind === "junction" &&
-            candidate.endpoint.junctionId === action.junctionId,
+        const endpoint = visibleEndpoints.find((candidate) =>
+          action.kind === "select-endpoint"
+            ? endpointKey(candidate.endpoint) === endpointKey(action.endpoint)
+            : candidate.endpoint.kind === "junction" &&
+              candidate.endpoint.junctionId === action.junctionId,
         );
         if (endpoint) {
           selectEndpoint(endpoint);

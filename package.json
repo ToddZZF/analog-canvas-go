@@ -21,6 +21,8 @@
     "@icm/symbols": "workspace:*"
   },
   "scripts": {
+    "rnl:package:check": "node scripts/rnl-canvas-package.mjs --check",
+    "rnl:package:fetch": "node scripts/rnl-canvas-package.mjs --fetch",
     "build": "pnpm -r --if-present build",
     "build:local": "pnpm build:local:web && node scripts/build-local-server.mjs",
     "build:local:notray": "pnpm build:local:web && node scripts/build-local-server.mjs --notray",

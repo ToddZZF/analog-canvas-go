@@ -82,7 +82,7 @@ describe("live netlist controls", () => {
     const project = createEmptyProject("project", "Project");
     for (const [index, [id, symbolId]] of (
       [
-        ["D1", "delay-cell"],
+        ["D1", "unit-delay"],
         ["S1", "spdt-switch"],
       ] as const
     ).entries())
@@ -118,7 +118,7 @@ describe("live netlist controls", () => {
     expect(markup).toContain("2 issues");
     expect(markup.match(/data-testid="netlist-issue"/gu)).toHaveLength(2);
     expect(markup).toContain(
-      "Symbol delay-cell has no reviewed netlist definition",
+      "Symbol unit-delay has no reviewed netlist definition",
     );
     expect(markup).toContain(
       "Symbol spdt-switch is drawing-only and has no netlist form",

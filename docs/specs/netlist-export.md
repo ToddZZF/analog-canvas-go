@@ -118,6 +118,19 @@ declares fixed `VDD`/`VSS` ports; logic ports follow Symbol pins.
   Cells; inputs are high above V(VDD,VSS)/2 via a `tanh` step `vt` (10 mV);
   outputs swing VSS→VDD through a one-pole delay `td` (10 ps); flip-flops sample D
   on CK rising, RST active high.
+- Delay Cell (`delay_cell`: `VDD VSS A Y`) is noninverting logic propagation,
+  not pure transport or a sampled `z^-1` delay. Relative to VSS, with
+  `Vs=V(VDD,VSS)` and `L(v)=(1+tanh((v-Vs/2)/vt))/2`, its state obeys
+  `tau*dx/dt+x=Vs*L(A)` and `Y=Vs*L(x)`, `tau=tpd/ln(2)`.
+  Positive numeric `tpd` (10 ps) is the nominal settled full-swing 50% delay;
+  positive numeric `vt` (10 mV) sets threshold width. Input slew/history can
+  change delay and narrow pulses can be suppressed. Input is high impedance,
+  output is an ideal voltage drive; no physical loading or power is modeled.
+  Invalid parameters block export with `INVALID_DELAY_CELL_PARAMETER`.
+  SPICE, VACASK and Spectre project the same recipe; Spectre execution is not
+  qualified. Like gates and DFFs, a project Cell with A/Y and optional VDD/VSS
+  Pins can replace the body without changing artwork. That Cell owns its
+  parameters and supplies; clearing its selection restores formula defaults.
 - Adder: V(Y) = ±V(A) ± V(B). `signA`/`signB` are `+` (default) or `-` (`−` read
   and stored as `-`); signs pick the body (`adder`, `adder_minus_a`,
   `adder_minus_b`, `adder_minus_ab`), never a call parameter; `+ +` is
@@ -138,6 +151,13 @@ declares fixed `VDD`/`VSS` ports; logic ports follow Symbol pins.
   (stored `vhigh=1` is not migrated). Errors:
   `INVALID_IDEAL_COMPARATOR_PARAMETER` (also ERC and immediate Agent refusal),
   `IDEAL_COMPARATOR_NAME_COLLISION`.
+- Fully differential comparator (`comparator-differential`) shares those
+  parameters and checks. `OUT+` uses the comparator transfer above; `OUT-`
+  uses its complement, so their sum is high + vlow and equal inputs put both
+  at the midpoint. Bodies `icm_ideal_comparator_differential` (`VIP VIN VOP
+  VON`) and `icm_ideal_comparator_differential_vdd` (`VDD VIP VIN VOP VON`)
+  read neither VSS nor an implicit clock. The model is ideal, unlatched and
+  memoryless; the Symbol's step mark adds no hysteresis or propagation delay.
 - SPICE and VACASK include all bodies; Spectre includes comparator and
   combinational gates (`bsource` with RC delay); DFF, multiplier and converters
   stay call-only with `SPECTRE_MODEL_NOT_INCLUDED`. Other Analog Blocks are
@@ -170,7 +190,10 @@ declares fixed `VDD`/`VSS` ports; logic ports follow Symbol pins.
   `.model PNP PNP(IS=1e-16 BF=50 VAF=50)` (information `GENERIC_BJT_MODEL`).
 - A same-name model in the imported SPICE suppresses the card everywhere; one in
   a folder's files only for that folder's runs. VACASK prints `sp_diode`/`sp_bjt`
-  (`type=±1`); cards are SPICE-only.
+  (`type=±1`). Spectre export carries native stand-ins with the same parameters:
+  `model DIODE diode is=1e-14 n=1`, `model NPN bjt type=npn is=1e-16 bf=100 vaf=100`
+  and `model PNP bjt type=pnp is=1e-16 bf=50 vaf=50`. Spectre run decks carry none
+  of these stand-ins; their model libraries remain the authority.
 - A netlist handed out (panel, copy, save, `SPICE+RNL`, `Spectre+RNL`) carries
   BSIM4 stand-ins for generic `NMOS`/`PMOS` in each Cell naming them
   (information `GENERIC_MOS_MODEL`), so it reads back with each part's channel

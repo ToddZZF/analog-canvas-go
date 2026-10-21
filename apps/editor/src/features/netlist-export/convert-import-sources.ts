@@ -1,18 +1,12 @@
 import { findBuiltInBodies } from "@icm/netlist";
 import {
   convertNetlist,
+  isSpectreSource,
   type SpiceBuiltInBody,
   type SpiceSourceInput,
 } from "@icm/spice";
 
-/** Whether a source is native Spectre, by its extension or its first lines. */
-export function isSpectreSource(input: SpiceSourceInput): boolean {
-  const prefix = new TextDecoder().decode(input.bytes.subarray(0, 512));
-  return (
-    /\.scs$/iu.test(input.path) ||
-    /^\s*(?:simulator\s+lang\s*=\s*spectre|subckt\s)/imu.test(prefix)
-  );
-}
+export { isSpectreSource } from "@icm/spice";
 
 /**
  * Sources as the ordinary SPICE loader takes them, which keeps ownership of

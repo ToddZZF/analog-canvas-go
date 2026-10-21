@@ -230,7 +230,7 @@ export function preferredPhysicalMergeTarget(
  */
 export function uniquePhysicalContactId(
   draft: SchematicDocument,
-  kind: "net" | "route",
+  kind: "net" | "route" | "junction",
   seed: string,
 ): string {
   const occupied = new Set([

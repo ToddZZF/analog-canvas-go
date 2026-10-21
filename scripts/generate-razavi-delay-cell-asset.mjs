@@ -74,7 +74,7 @@ Object.assign(entry, {
   palette: true,
   automaticMappings: [],
   manualOnlyReason:
-    "Visual delay-stage block; timing and structural netlist semantics require an explicit implementation mapping.",
+    "Manual placement; noninverting formula propagation delay or an explicit project Cell implementation, not pure transport delay.",
   assetPath: "delay-cell.json",
   assetHash: hash(assetSource),
   visualAuthority: {

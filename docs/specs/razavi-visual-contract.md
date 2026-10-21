@@ -105,6 +105,14 @@ real.
   These controlled-source compositions are house artwork, not new textbook
   evidence.
 
+## Fully differential comparator
+
+The fully differential comparator is house-derived from the existing
+comparator's transfer glyph and shared differential triangle. It retains
+the existing scale, strokes and Annotation layout, with `IN+`, `IN-`, `OUT+`
+and `OUT-` on the 10-unit grid. Input swapping and input-mark visibility
+change presentation only. It claims no exact textbook witness or pixel IoU.
+
 ## Analog transconductance blocks
 
 Right-tapered trapezoid with centred renderer-owned formula, default `g_m`
@@ -135,11 +143,13 @@ primitive.
 
 ## Catalog and palette exposure
 
-A Razavi palette entry needs: an electrically reviewed `SymbolDefinition` with
-on-grid pins; `catalog.reviewStatus: "reviewed"`; `palette: true` and
-`visualAuthority.kind: "razavi-reference-v1"`; present, hash-checked evidence,
-witness and measurements; membership in `razaviProductSymbols` (the sole
-source of the Razavi library section). Optional families appear only in a
+A Razavi palette entry needs an electrically reviewed `SymbolDefinition` with
+on-grid pins, `catalog.reviewStatus: "reviewed"`, `palette: true`, and membership
+in `razaviProductSymbols` (the sole source of that library section).
+Reference-derived entries additionally need `visualAuthority.kind:
+"razavi-reference-v1"`, present hash-checked evidence, witness and measurements;
+explicit house entries follow the provenance rule above and claim no authority.
+Optional families appear only in a
 separately named library (e.g. `Extended Devices`) without Razavi claims.
 Unsupported SPICE devices block import; PDK mappings follow
 [Symbol DSL](symbol-dsl.md). `npn`/`pnp` stay device symbols; no hybrid-pi or

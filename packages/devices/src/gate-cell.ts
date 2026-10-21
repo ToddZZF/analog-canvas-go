@@ -1,4 +1,4 @@
-// A Library logic gate (#1450) or D flip-flop (#1689) implemented by a Cell
+// A Library logic gate, D flip-flop or Delay Cell implemented by a Cell
 // of its Project: the part keeps its symbol, and its call goes to the Cell's
 // subcircuit.
 import {
@@ -21,10 +21,14 @@ const CELL_FLIP_FLOPS: ReadonlySet<string> = new Set([
 
 /**
  * Whether a Library symbol keeps its look while a Cell of its Project
- * implements it: the logic gates (#1450) and the D flip-flops (#1689).
+ * implements it: the logic gates, D flip-flops and Delay Cell.
  */
 export function bindsProjectCell(symbolId: string): boolean {
-  return isLibraryLogicGate(symbolId) || CELL_FLIP_FLOPS.has(symbolId);
+  return (
+    isLibraryLogicGate(symbolId) ||
+    CELL_FLIP_FLOPS.has(symbolId) ||
+    symbolId === "delay-cell"
+  );
 }
 
 /** One Pin of the Cell a gate calls, and the gate terminal on it. */
@@ -108,7 +112,7 @@ export function matchGateCellPins(
             extra,
             "is not one",
             "are not",
-          )} of the ${CELL_FLIP_FLOPS.has(symbolId) ? "flip-flop" : "gate"}'s`,
+          )} of the ${CELL_FLIP_FLOPS.has(symbolId) ? "flip-flop" : symbolId === "delay-cell" ? "Delay Cell" : "gate"}'s`,
         ]
       : []),
   ];

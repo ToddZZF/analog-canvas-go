@@ -259,6 +259,7 @@ interface EndpointHitTargetProps {
   selectedRouteSegmentIndex: number | null;
   selectedEndpoint: WireSource | null;
   supplementalJunctionIds: readonly string[];
+  junctionDotEndpointKeys?: ReadonlySet<string>;
   selectionPolicy: SelectionPolicy;
   endpointLabel: (endpoint: WireSource["endpoint"]) => string;
   onEndpointActions: (
@@ -623,6 +624,7 @@ function EndpointHitTargets({
   selectedRouteSegmentIndex,
   selectedEndpoint,
   supplementalJunctionIds,
+  junctionDotEndpointKeys,
   selectionPolicy,
   endpointLabel,
   endpointHitRadius,
@@ -757,6 +759,13 @@ function EndpointHitTargets({
         key={`${candidate.netId}:${label}`}
         data-testid={label}
         data-endpoint-kind={candidate.endpoint.kind}
+        data-endpoint-key={candidateKey}
+        data-junction-dot={
+          candidate.endpoint.kind === "terminal" &&
+          junctionDotEndpointKeys?.has(candidateKey)
+            ? "true"
+            : undefined
+        }
         data-control-hover={
           controlSensorCandidate
             ? Boolean(

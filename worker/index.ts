@@ -116,6 +116,10 @@ export default {
       // The privacy notice promises yesterday's opens are gone the next
       // day, whatever became of the marks.
       await forgetEarlierOpens(env);
+      // A block notice the Owner did not get is sent again.
+      await env.AUTH?.getByName("auth")
+        .fetch("https://auth/internal/block-notices", { method: "POST" })
+        .catch(() => null);
       // The simulation checks the Owner queued (#1545) take the rest of
       // the tick, one folder at a time; with none queued, one read.
       await advanceSimulationChecks(env);

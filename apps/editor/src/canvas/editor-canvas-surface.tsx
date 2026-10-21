@@ -99,6 +99,7 @@ export interface EditorCanvasSurfaceProps {
   sceneInnerHtml: { __html: string };
   selectionHalo: ComponentProps<typeof EditorSelectionHalo>;
   cellSymbolLayout: ComponentProps<typeof EditorCellSymbolLayoutOverlay> | null;
+  cellSymbolLayoutControls?: ReactNode;
   netHighlight: ComponentProps<typeof NetHighlightOverlay>;
   connectedNets: ComponentProps<typeof ConnectedNetGlow>;
   wireUnderSymbol: ComponentProps<typeof WireUnderSymbolOverlay>;
@@ -118,6 +119,7 @@ export interface EditorCanvasSurfaceProps {
   textDraft?: ComponentProps<typeof TextDraftEditorOverlay>;
   /** A card in the middle of the canvas, above the drawing. */
   notice?: ReactNode;
+  noConnectPreview?: ReactNode;
 }
 
 function CanvasShortcutChord({ keys }: { keys: readonly string[] }) {
@@ -145,6 +147,7 @@ export function EditorCanvasSurface({
   sceneInnerHtml,
   selectionHalo,
   cellSymbolLayout,
+  cellSymbolLayoutControls,
   netHighlight,
   connectedNets,
   wireUnderSymbol,
@@ -162,6 +165,7 @@ export function EditorCanvasSurface({
   interactionPreviews,
   textDraft,
   notice,
+  noConnectPreview,
 }: EditorCanvasSurfaceProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   useLayoutEffect(() => {
@@ -398,6 +402,7 @@ export function EditorCanvasSurface({
                 : null
             }
           />
+          {noConnectPreview}
           {cellSymbolLayout ? (
             <EditorCellSymbolLayoutOverlay {...cellSymbolLayout} />
           ) : null}
@@ -411,6 +416,7 @@ export function EditorCanvasSurface({
           {textDraft ? <TextDraftEditorOverlay {...textDraft} /> : null}
         </g>
       </svg>
+      {cellSymbolLayoutControls}
       {notice}
     </section>
   );

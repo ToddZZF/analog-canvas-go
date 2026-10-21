@@ -459,6 +459,12 @@ describe("render svg", () => {
     // A contact between differently colored Routes has no single wire color.
     doc.routes[2]!.styleOverride = { color: "#0000FF" };
     expect(dot()).toContain('fill="#000"');
+    doc.junctions[0]!.styleOverride = { color: "#CC2244" };
+    expect(dot()).toContain('fill="#CC2244"');
+    doc.routes[2]!.styleOverride = { color: "#008000" };
+    expect(dot()).toContain('fill="#CC2244"');
+    delete doc.junctions[0]!.styleOverride;
+    expect(dot()).toContain('fill="#008000"');
   });
 
   it("renders each Route's middle or end arrow as vector geometry", () => {

@@ -939,12 +939,19 @@ function parseLogicalLine(line: LogicalLine): {
         "directive",
         "error",
       );
+    // TYPE(...) and TYPE (...) carry the same model type and raw body.
+    const open = fields[2].indexOf("(");
+    const modelType = open > 0 ? fields[2].slice(0, open) : fields[2];
+    const rawParameters = [
+      ...(open > 0 ? [fields[2].slice(open)] : []),
+      ...fields.slice(3),
+    ].join(" ");
     return {
       statement: {
         kind: "model",
         name: fields[1],
-        modelType: fields[2],
-        rawParameters: fields.slice(3).join(" "),
+        modelType,
+        rawParameters,
         rawText,
         sourceRef,
       },

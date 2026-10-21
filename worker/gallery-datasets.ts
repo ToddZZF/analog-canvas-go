@@ -10,7 +10,7 @@ import {
 } from "@icm/project-protocol";
 import { builtInSymbols, createProjectSymbolResolver } from "@icm/symbols";
 import { type CircuitProject } from "@icm/model";
-import { sessionUserOf } from "./auth";
+import { hasBearer, ownerTokenUserOf, sessionUserOf } from "./auth";
 import {
   GALLERY_SOURCES,
   galleryStoreName,
@@ -63,16 +63,22 @@ const GALLERY_SOURCE_IMPORT_BATCH = 10;
  * The Owner imports circuits into a reference dataset (#1510): each under
  * the id its dataset gives it, inserted or replaced in place, attributed to
  * the dataset. Same checks as a submission's Project; nothing else writes
- * to a dataset's store.
+ * to a dataset's store. The Owner's same-origin session or an Owner token
+ * (#1769) authorizes it; the token opens no other route.
  */
 export async function handleSourceImport(
   request: Request,
   env: GalleryEnv,
   source: GallerySource,
 ): Promise<Response> {
-  if (!sameOrigin(request))
+  // A browser never adds a bearer by itself, so a request carrying one
+  // needs no same-origin check.
+  const viaToken = hasBearer(request);
+  if (!viaToken && !sameOrigin(request))
     return Response.json({ error: "forbidden" }, { status: 403 });
-  const user = await sessionUserOf(request, env);
+  const user = viaToken
+    ? await ownerTokenUserOf(request, env)
+    : await sessionUserOf(request, env);
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   if (!user.isOwner)
     return Response.json({ error: "owner-only" }, { status: 403 });

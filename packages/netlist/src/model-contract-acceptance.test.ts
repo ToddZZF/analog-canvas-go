@@ -706,13 +706,90 @@ describe("shared built-in model acceptance", () => {
                   ? 0.01
                   : target === "opamp_differential"
                     ? 0.5
-                    : 1;
+                    : metadata.family === "comparator" &&
+                        symbol !== "comparator"
+                      ? 1.8
+                      : 1;
       expect(read("proof.raw", output).real[0]).toBeCloseTo(expected, 7);
       expect(read("time.raw", output).real.every(Number.isFinite)).toBe(true);
       expect(read("freq.raw", output).real.every(Number.isFinite)).toBe(true);
     },
     60000,
   );
+
+  for (const engine of ["ngspice", "vacask"] as const) {
+    it
+      .skipIf(
+        engine === "ngspice"
+          ? !process.env.NGSPICE_BIN
+          : !process.env.VACASK_BIN && !process.env.VACASK_WSL_BIN,
+      )
+      .each([
+        { vhigh: "VDD", vlow: "0", delta: -0.01, positive: 0, negative: 1.8 },
+        { vhigh: "VDD", vlow: "0", delta: 0, positive: 0.9, negative: 0.9 },
+        { vhigh: "VDD", vlow: "0", delta: 0.01, positive: 1.8, negative: 0 },
+        { vhigh: "2", vlow: "-1", delta: -0.01, positive: -1, negative: 2 },
+        { vhigh: "2", vlow: "-1", delta: 0, positive: 0.5, negative: 0.5 },
+        { vhigh: "2", vlow: "-1", delta: 0.01, positive: 2, negative: -1 },
+      ])(
+      `executes the fully differential comparator in ${engine}: high=$vhigh input=$delta`,
+      ({ vhigh, vlow, delta, positive, negative }) => {
+        const { project, folder } = fixture("comparator-differential", {
+          vhigh,
+          vlow,
+          vtransition: "1m",
+        });
+        folder.input.entry = engine === "ngspice" ? "run.sp" : "run.sim";
+        folder.input.circuitBindings[0]!.path =
+          engine === "ngspice" ? "circuit.sp" : "circuit.sim";
+        folder.input.circuitBindings[0]!.emission = "top-level";
+        const text =
+          engine === "ngspice"
+            ? `Differential comparator\n.include circuit.sp\nVrail VDD 0 1.8\nVin VIP 0 ${delta}\n.control\nop\nwrdata positive.txt v(VOP)\nwrdata negative.txt v(VON)\n.endc\n.end\n`
+            : `Differential comparator\ninclude "circuit.sim"\nmodel vs vsource\nvrail (VDD 0) vs dc=1.8\nvin (VIP 0) vs dc=${delta}\ncontrol\nabort always\noptions rawfile="ascii"\nsave default\nanalysis proof op\nendc\n`;
+        folder.input.files = [
+          {
+            path: folder.input.configPath,
+            text: '{"version":2,"environment":{"profileId":"local"}}',
+          },
+          { path: folder.input.entry, text },
+        ];
+        const compiled =
+          engine === "ngspice"
+            ? compileNgspiceSourceSimulation(project, folder)
+            : compileSourceSimulation(project, folder);
+        expect(compiled.ok, JSON.stringify(compiled)).toBe(true);
+        if (!compiled.ok) return;
+        let actual: number[];
+        if (engine === "vacask") {
+          const read = nativeRun(compiled.files);
+          actual = [
+            read("proof.raw", "VOP").real[0]!,
+            read("proof.raw", "VON").real[0]!,
+          ];
+        } else {
+          const dir = mkdtempSync(join(tmpdir(), "icm-fd-comparator-"));
+          for (const file of compiled.files)
+            writeFileSync(join(dir, file.path), file.text);
+          const run = spawnSync(
+            process.env.NGSPICE_BIN!,
+            ["-b", folder.input.entry],
+            { cwd: dir, encoding: "utf8", timeout: 30000, windowsHide: true },
+          );
+          expect(run.status, run.stdout + run.stderr).toBe(0);
+          actual = ["positive.txt", "negative.txt"].map((file) =>
+            Number(
+              readFileSync(join(dir, file), "utf8").trim().split(/\s+/u)[1],
+            ),
+          );
+        }
+        expect(actual[0]).toBeCloseTo(positive, 7);
+        expect(actual[1]).toBeCloseTo(negative, 7);
+        expect(actual[0]! + actual[1]!).toBeCloseTo(positive + negative, 7);
+      },
+      60000,
+    );
+  }
 
   it
     .skipIf(!process.env.VACASK_BIN && !process.env.VACASK_WSL_BIN)

@@ -27,6 +27,8 @@ import type { SymbolResolver } from "./resolver.js";
 export {
   freeHierarchicalBlockOffsets,
   hierarchicalBlockBodySize,
+  hierarchicalBlockPinSlots,
+  hierarchicalBlockLabelWarnings,
   type HierarchicalBlockPinSlot,
 } from "./hierarchical-block-geometry.js";
 

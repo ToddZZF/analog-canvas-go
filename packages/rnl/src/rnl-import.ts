@@ -22,6 +22,7 @@ type Junction = SchematicDocument["junctions"][number];
 import { acOrientation, composeOrient, type RnlOrient } from "./orientation.js";
 import { acPosition, AC_UNITS_PER_RNL_UNIT } from "./place.js";
 import { RNL_SYMBOLS, type RnlSymbol } from "./symbol-map.js";
+import { matchesInlineRnlSymbol } from "./inline-symbols.js";
 import { acRichText, type RnlRun } from "./text.js";
 
 /**
@@ -109,6 +110,7 @@ export interface RnlSymbolDefinitionView {
     shape: string;
     points: readonly Point[];
     params?: Readonly<Record<string, string | number>>;
+    style?: Readonly<Record<string, string | number | boolean>>;
   }[];
 }
 
@@ -240,7 +242,11 @@ function acSymbolFor(
     (row) =>
       row.ac !== null &&
       row.symbol === symbol.name &&
-      family(row.package) === family(symbol.package) &&
+      (row.inline
+        ? symbol.package === null &&
+          symbol.level !== null &&
+          matchesInlineRnlSymbol(row, symbol.definition)
+        : family(row.package) === family(symbol.package)) &&
       pinNames.every(
         (pin) =>
           row.pins.some((item) => item.acPin === pin) ||
@@ -547,11 +553,17 @@ function applyLevel(
         (terminal) => terminal.pinName,
       ) ?? [];
     const mapped =
-      symbol && !symbol.default && !symbol.level
+      symbol && !symbol.default
         ? (acSymbolFor(symbol, orient, instance, pinNames) ??
           phaseSwitchSymbol(symbol, orient, instance))
         : null;
-    if (symbol && !mapped && !symbol.default && !symbol.level)
+    if (
+      symbol &&
+      !mapped &&
+      !symbol.default &&
+      (!symbol.level ||
+        RNL_SYMBOLS.some((row) => row.inline && row.symbol === symbol.name))
+    )
       warn(
         "RNL_IMPORT_UNMAPPED_SYMBOL",
         `${instance.id} is drawn with ${symbol.name}, which Analog Canvas has no symbol for; it keeps its own`,

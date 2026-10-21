@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { parseProject } from "@icm/project-protocol";
+import rc from "../../examples/simulation-rc.icproj.json";
 
 import { RNL_INTRO_URL } from "../../components/site-resource-links";
-import { AboutRnlLink } from "./rnl-netlist-view";
+import { AboutRnlLink, RnlNetlistView } from "./rnl-netlist-view";
 
 describe("the About RNL link", () => {
   it("opens the introduction to RNL in a new tab", () => {
@@ -31,4 +33,24 @@ describe("the About RNL link", () => {
       renderToStaticMarkup(<AboutRnlLink externalLinksEnabled={false} />),
     ).toBe("");
   });
+});
+
+it("waits for the current export and omits the Viewer action from desktop", () => {
+  const props = {
+    project: parseProject(JSON.stringify(rc)),
+    format: "spice",
+    namingProfile: "native",
+  } as const;
+  const web = renderToStaticMarkup(<RnlNetlistView {...props} />);
+  expect(web).toContain("Open RNL Viewer");
+  expect(web).toContain('aria-disabled="true"');
+  const desktop = renderToStaticMarkup(
+    <RnlNetlistView
+      {...props}
+      externalLinksEnabled={false}
+      onOpenExternalLink={() => {}}
+    />,
+  );
+  expect(desktop).not.toContain("Open RNL Viewer");
+  expect(desktop).toContain('data-native-external-link="rnl"');
 });

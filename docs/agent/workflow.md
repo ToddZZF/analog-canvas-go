@@ -33,23 +33,11 @@ is recovered with the original request identity. Interpret results with
 | Local parameter change | Accepted change and current value; simulation only if requested |
 | Placement, labels or routing | Changed geometry/connectivity and a formal render of the area |
 | Whole schematic or hierarchy | Changed Documents and affected parent contexts reviewed |
-| Drawing from a reference (figure, paper, netlist) | `verify` `expectedNetlist` at `status: "equal"` or every difference explained, then a render |
+| Drawing from a reference (figure, paper, netlist) | Done as [Drawing a schematic](circuit-style-knowledge.md) defines it: connected, compact, reads like the source |
 | Simulation | Completed run, captured input identity and retrieved requested results |
 
-A copied drawing is complete when its connectivity matches, not when it looks
-right:
-
-1. Before placing, write the reference as structural SPICE: MOS in `D G S B`
-   order, the named ports, a name for every node the figure names.
-2. After drawing, `verify` with `expectedNetlist` and `details:true`.
-   `topology: "equal"` means the wiring matches.
-3. `port-order` (a figure does not fix port order) and `binding` (model card
-   `M1` versus subcircuit call `XM1`) differences can be harmless: skip them
-   with `compare:{portOrder:false,bindings:false}` or name them in the report.
-4. Then `render` or export a PNG for visual review.
-
-For visual changes use [style guidance](circuit-style-knowledge.md) and
-[diagnostic policy](shared/diagnostics.md); do not clear observations
+For other visual changes use [Drawing a schematic](circuit-style-knowledge.md)
+and [diagnostic policy](shared/diagnostics.md); do not clear observations
 mechanically or polish unrelated areas. A render does not prove electrical
 performance.
 

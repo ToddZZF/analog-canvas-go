@@ -259,6 +259,7 @@ export function agentEditCategory(
     case "set_instance_reference":
     case "set_instance_style_override":
     case "set_route_style_override":
+    case "set_junction_style_override":
     case "set_object_document_style":
     case "set_instance_signal_flow_parameters":
       return "presentation";

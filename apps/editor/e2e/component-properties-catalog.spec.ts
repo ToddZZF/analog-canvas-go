@@ -11,6 +11,7 @@ import {
 } from "./editor-fixtures.js";
 import { openSelectionShelf } from "./manual-editor-fixtures.js";
 import { closeSelectionShelf, placedInstance } from "./canvas-fixtures.js";
+import { delayCellFixture } from "../../../packages/netlist/src/delay-cell-fixture.test-support.js";
 
 // Full catalog projection/parse coverage, every part's initial parameters
 // included, lives in component-property-catalog.test.ts. These open the
@@ -35,6 +36,37 @@ async function openPropertiesWithQ(
     "Canvas property code",
   );
 }
+
+test("Delay Cell switches formula parameters and project transistor Cell without moving pins", async ({
+  page,
+}) => {
+  const project = delayCellFixture(true);
+  const instance = project.documents[0]!.instances[0]!;
+  instance.netlist = {
+    binding: { kind: "unresolved-subcircuit", name: "delay_cell" },
+    parameters: { vt: "10m", tpd: "10p" },
+  };
+  await openProject(page, project, "delay-cell.icproj.json");
+  await openPropertiesWithQ(page, "hit-X1");
+  await expectComponentCodeField(page, "parameters.tpd", "10p");
+  await editComponentPropertyCode(page, (code) => {
+    code.parameters.tpd = "100p";
+  });
+  await expectComponentCodeField(page, "parameters.tpd", "100p");
+  const hit = page.getByTestId("hit-X1");
+  const before = await hit.boundingBox();
+  await editComponentPropertyCode(page, (code) => {
+    code.netlistTarget = "delay_cmos";
+  });
+  await expectComponentCodeField(page, "netlistTarget", "delay_cmos");
+  await expectComponentCodeField(page, "parameters.tpd", undefined);
+  expect(await hit.boundingBox()).toEqual(before);
+  await editComponentPropertyCode(page, (code) => {
+    code.netlistTarget = "";
+  });
+  await expectComponentCodeField(page, "parameters.tpd", "10p");
+  expect(await hit.boundingBox()).toEqual(before);
+});
 
 test("Properties resumes displayed PDK source on opening and changing the selection", async ({
   page,

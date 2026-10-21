@@ -1,7 +1,7 @@
 {
   "format": "analog-canvas-agent-distribution-v1",
   "version": 1,
-  "registrySha256": "8ce51f004914620d154cb54df36b2c6e73dc2ee7850eda8b1c33dbf3d430c08a",
+  "registrySha256": "7a1c63b8c1af55e3f573c952a4ecbfb75562baf4cc94ebae341301c5f0e8b724",
   "sources": [
     {
       "source": "docs/agent/simulation-specs.md",
@@ -21,11 +21,11 @@
     },
     {
       "source": "docs/agent/shared/authoring.md",
-      "sha256": "9c3ae5b04f26332fa6916f9d6df7d232ca8cc977e0d48934cf3ca22b628f6940"
+      "sha256": "3ca387887a0d32ab9126f6734dec436223beb0ef5cf98a471d34ee6093e00370"
     },
     {
       "source": "docs/agent/workflow.md",
-      "sha256": "f9627abd68a7262386277e097d66d3fc4ff1af538a2c5edde323e6ef141b2e09"
+      "sha256": "b63788b375b95396c7500a0631a4b2a1ca9eea1c9799914333285d1d2ba658a8"
     },
     {
       "source": "docs/agent/tool-behavior.md",
@@ -37,7 +37,7 @@
     },
     {
       "source": "docs/agent/circuit-style-knowledge.md",
-      "sha256": "f44806049658dd57b750daf16c18a55c04ea5c1b3b356d5ad5d945fb619a781e"
+      "sha256": "d20c15d3b94ac77bd6fcf3acbddaa7e9fa2d7b62ab2267097f355064b194bcd4"
     },
     {
       "source": "docs/agent/shared/diagnostics.md",
@@ -45,7 +45,7 @@
     },
     {
       "source": "fixtures/agent-api/agent-circuit-request.schema.json",
-      "sha256": "1ff8bb778a22728e6b635e44c0a2a3a49ca9f0f686caa5875c4f1fac2fae1b49"
+      "sha256": "1d6357c9bf5317866350df9f21668665802d245392bff0a756f29f2624a1b98e"
     },
     {
       "source": "docs/agent/http-kit/README.md",
@@ -61,7 +61,7 @@
     },
     {
       "source": "packages/agent-adapter/src/agent-authoring-catalog.generated.ts",
-      "sha256": "02d5db5cd96797bbc3145392b6d424c2d39085dc85878dc0987576387864f00b"
+      "sha256": "63d1e855bb78667a4ccb4ac5a8dfe38846eaf27d0e707db770e86e596cc62f6e"
     },
     {
       "source": "docs/agent/knowledge/circuit-reading.md",
@@ -121,11 +121,11 @@
     },
     {
       "source": "docs/agent/mcp/tool-help.json",
-      "sha256": "a363a5ceac01c3714fd49d3a197733a55616f1c662715cc06d141098e131c979"
+      "sha256": "bca4f27d1d52a718fbff599ca03d52e10fc016f9d58872a984c8dfded2fe541f"
     },
     {
       "source": "docs/agent/http-kit/api-help.json",
-      "sha256": "45e9f94a6c57e3fa4795785b8c33b024a79cf657a6e1b19db02f6409ff5754b7"
+      "sha256": "c26a542c286aadebe5a39f15a63ba61903635a062ce51b6f3af0f6176a7e1b6f"
     },
     {
       "source": "docs/agent/mcp/instructions.md",
@@ -256,7 +256,7 @@
         "http-cli",
         "http-kit"
       ],
-      "task": "Look up schematic layout rules",
+      "task": "Draw or redraw a schematic from a figure, paper or netlist",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/razavi-style",
@@ -284,7 +284,7 @@
         "http-cli",
         "http-kit"
       ],
-      "task": "Layout lookup alias; do not reread",
+      "task": "Drawing guide alias; do not reread",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/routing",
@@ -521,7 +521,7 @@
         "http-cli",
         "http-kit"
       ],
-      "task": "Layout lookup alias; do not reread",
+      "task": "Drawing guide alias; do not reread",
       "load": "on-demand",
       "requires": [],
       "uri": "analog-canvas://reference/knowledge/patterns",
@@ -606,7 +606,7 @@
         "docs/agent/shared/simulation.md",
         "docs/agent/circuit-style-knowledge.md"
       ],
-      "sha256": "713aaba65b2577ff4e6d0b3b68d39c2d0a66d8fdf0e1714bbd70c1c8f1019625"
+      "sha256": "f450a743219d3a34deca5b04fc7b07637660b67d6bf4e47743205ddd43460b41"
     },
     {
       "file": "packages/agent-adapter/src/agent-docs.generated.ts",
@@ -636,7 +636,7 @@
         "docs/agent/shared/simulation.md",
         "docs/agent/circuit-style-knowledge.md"
       ],
-      "sha256": "6cf40638a4e06e7121081649b138e8efe7b5387cc55920f177f3a470edfeb1c8"
+      "sha256": "e92d2e6a404de0aa3b9bc472e5084a72538d6af536bc5e02122e4773fb4177a9"
     },
     {
       "file": "packages/agent-adapter/src/agent-api-help.generated.ts",
@@ -644,7 +644,7 @@
         "docs/agent/distribution.json",
         "docs/agent/http-kit/api-help.json"
       ],
-      "sha256": "504055c0758df764a8b4b64293df611e069530d54480979812047aecfedd5459"
+      "sha256": "f2c6e686584ae50dc775fd5853960febf5abe25147dd1930aa2c1795f5bf52fb"
     },
     {
       "file": "apps/mcp-server/src/guidance.generated.ts",
@@ -653,7 +653,7 @@
         "docs/agent/mcp/instructions.md",
         "docs/agent/mcp/tool-help.json"
       ],
-      "sha256": "ff5fb291370e3c5481b42a820f27c5f179fd8218c0a44be4743cf08227bf0743"
+      "sha256": "a1ceb58b26abd08662f53dd23c4066c98eaa2b5a662d72a41ad238fe1e642382"
     },
     {
       "file": "apps/editor/src/agent/connection-guidance.generated.ts",

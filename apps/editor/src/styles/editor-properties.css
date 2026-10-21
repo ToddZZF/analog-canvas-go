@@ -1049,6 +1049,50 @@
   fill: var(--icm-warning);
 }
 
+.cell-symbol-layout-handle.pin.selected {
+  fill: var(--icm-accent);
+  stroke: var(--icm-text);
+  stroke-width: 2px;
+}
+
+.cell-symbol-layout-marquee {
+  fill: color-mix(in srgb, var(--icm-accent) 12%, transparent);
+  stroke: var(--icm-accent);
+  stroke-width: 1px;
+  pointer-events: none;
+}
+
+.cell-symbol-layout-limit {
+  fill: var(--icm-warning);
+  paint-order: stroke;
+  stroke: var(--icm-surface);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.cell-symbol-layout-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  border: 1px solid var(--icm-border);
+  border-radius: 6px;
+  background: var(--icm-surface);
+  font-size: var(--icm-font-xs);
+}
+
+.cell-symbol-layout-toolbar small {
+  flex-basis: 100%;
+  color: var(--icm-text-muted);
+}
+
 .property-parameter-name {
   color: var(--icm-text);
   font-weight: 650;

@@ -226,7 +226,7 @@ const openProjectFile = (page: Page, project: CircuitProject | Buffer) =>
 async function markNoConnect(page: Page, terminal: string) {
   await page.getByTestId(terminal).click({ button: "right" });
   await openSelectionShelf(page);
-  await button(page, "Mark No Connect").click();
+  await button(page, "Mark NoConn").click();
   await page.keyboard.press("Escape");
 }
 /** Pairs a real Agent session with this Editor: a concurrent Project writer. */

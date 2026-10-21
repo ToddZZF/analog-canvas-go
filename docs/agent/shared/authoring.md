@@ -33,10 +33,12 @@ holding one (`drafting-cover`).
 
 `place-component` takes an optional `id` of your choosing (refused if taken).
 Give one to a ground, each VDD marker and any part you will wire: later actions
-of the list may name it by that ID or its Reference. In MCP wiring
-`instance:{kind:"instance",id}` avoids full-Snapshot name resolution (use it
-for imported Cell Pins). A name several parts share (every VDD marker's `VDD`)
-is refused with their IDs, never resolved to the first.
+of the list may name it by that ID or its Reference. A bare string
+(`instance:"M4"`) matches a Reference or Cell Pin name first and an ID only
+when none matches; `instance:{kind:"instance",id}` names the ID alone and, in
+MCP wiring, avoids full-Snapshot name resolution (use it for imported Cell
+Pins). A name several parts share (every VDD marker's `VDD`) is refused with
+their IDs, never resolved to the first.
 
 ## Place and name
 
@@ -51,7 +53,8 @@ is refused with their IDs, never resolved to the first.
   `X2`; a block that emits nothing gets none). A wrong prefix or a used name is
   rejected with a free name and nothing is placed. To draw another name (op-amp
   `X1` as A1) use `set-display-alias {target, text}` (`text:null` restores);
-  it survives Project Code and Copy.
+  it survives Project Code and Copy. A Reference outside letters, digits and
+  `_` (a prime, `C3'`) blocks the netlist (`INVALID_INSTANCE_REFERENCE`).
 - A device shows its name alone. `showValue:true` on `place-component` shows
   its value; `showReference:false` hides the name (native `displays` keyed by
   new Instance ID); Cell markers and ground take neither. Later,
@@ -123,6 +126,7 @@ is refused with their IDs, never resolved to the first.
     the gate's own Cell is refused, and used Pins cannot be renamed or removed.
 
   An empty model returns the ideal body and default parameters.
+
 - A D flip-flop (`d-flip-flop`, `d-flip-flop-q`, `d-flip-flop-reset`) binds to
   a Project Cell the same way, keeping its symbol: the Cell's Pins are `D`,
   `CK`, `Q`, `QBAR` where the symbol has it and `RST` for the reset form, plus
@@ -247,9 +251,10 @@ information). Hidden bulk needs no decorative wire.
   Net. `reference` names a Port (required); `vdd-port` defaults to `VDD`;
   `ground` takes none. Optional `direction` (default passive) applies to these
   markers only (native `terminalDirections` keys must be new markers). The
-  first explicit supply in a batch initializes an absent bulk default. A
-  `vdd-port`'s name stands beside its bar; `arrange-labels` `side:"top"`
-  centres it (house style).
+  first explicit supply in a batch initializes an absent bulk default, so a
+  signal input (`VIN`) is a `port`, not a `vdd-port`. A `vdd-port`'s name
+  stands beside its bar; `arrange-labels` `side:"top"` centres it (house
+  style).
 - `set-port-direction` sets one terminal or a whole Port; `set-vdd-mode`
   switches VDD between Cell Pin and Global. Remove a Pin with
   `remove-cell-terminal` or selection deletion, never by disconnecting `P`.
@@ -264,10 +269,10 @@ information). Hidden bulk needs no decorative wire.
 - `set-cell-symbol-pins` (`circuit_transform`, the Cell's `documentId`)
   arranges a block's Pins by name:
   `{kind:"set-cell-symbol-pins",pins:[{name:"bl",side:"east"},{name:"blb",side:"west",offset:0}]}`.
-  Sides `north|east|south|west`; `offset` from the side's middle in multiples
+  Sides `north|east|south|west`; `offset` along the side from the Symbol origin in multiples
   of 10. Unnamed Pins stay (on an unplaced Cell, where the first placement puts
   them); a named Pin without `offset` stays on an unchanged side, else takes
-  the first free slot (0, -20, 20, …). Unknown names and shared slots are
+  the first free slot inside the body (0, -20, 20, …). Unknown names and shared slots are
   refused with the names or free slots. Callers keep their Nets; stretched
   wiring is redrawn and labels it crosses move clear;
   `projectStructure.changedDocumentIds` and `changedObjectIds` name what moved.
@@ -370,7 +375,9 @@ means deleting the Cell.
   which create the name claim and bound text together (free text does not).
   Give `position` for a new label; its target is a Net or a pin (that pin's
   Net, on its wire). Plain text is a name drawn in its standard look (`VB1` as
-  V over B1); RichText (runs use `value`) sets its own look. Deleting a label
+  V over B1); RichText (runs use `value`) sets its own look. A math run in a
+  Port or Net label renames the Net to its LaTeX (`\phi_1`), which the netlist
+  export refuses: write Greek as the Unicode letter (`φ1`). Deleting a label
   removes its claim, not wires. Name nodes that scripts reference.
 - `annotate` is for independent notes, with GUI Text defaults. `annotate` and
   `edit-text` take plain text (keeps existing spans) or RichText (replaces

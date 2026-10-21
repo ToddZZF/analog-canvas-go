@@ -56,7 +56,7 @@ export function prepareRoutingTransform(
   resolver: SymbolResolver,
   seed: RoutingSelectionSeed,
 ): (operation: TransformOperation) => RoutingOperationPlan {
-  const affected = deriveRoutingAffectedClosure(document, seed);
+  const affected = deriveRoutingAffectedClosure(document, seed, { resolver });
   const affectedIds = new Set([
     ...affected.instances,
     ...affected.internalRoutes,

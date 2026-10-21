@@ -1,6 +1,7 @@
 // Reference datasets in stores of their own (#1510).
 
 import { describe, expect, it } from "vitest";
+import { OWNER_ACCOUNT_IDS } from "./auth";
 import {
   ORIGIN,
   environment,
@@ -108,6 +109,115 @@ describe("reference datasets in stores of their own (#1510)", () => {
     expect(await wall("?source=analoggenie")).toEqual([
       expect.objectContaining({ id: "ag-308" }),
     ]);
+  });
+
+  it("takes an Owner token from a non-browser client, on the import alone (#1769)", async () => {
+    const env = environment();
+    const owner = await ownerAccountOf(env);
+    const auth = (path: string, init: RequestInit = {}) =>
+      env.authDurable.fetch(
+        new Request(`${ORIGIN}/api/auth/owner-tokens${path}`, {
+          ...init,
+          headers: { Origin: ORIGIN, Cookie: owner },
+        }),
+      );
+    const mint = async () =>
+      (await (
+        await auth("", {
+          method: "POST",
+          body: JSON.stringify({ label: "redraw machine" }),
+        })
+      ).json()) as { id: string; token: string };
+    const { id, token } = await mint();
+    // A command-line client: no Origin, no cookie, only the bearer.
+    const bearerCall = (
+      path: string,
+      bearer: string | null,
+      init: RequestInit = {},
+    ) =>
+      route(
+        env,
+        new Request(`${ORIGIN}${path}`, {
+          ...init,
+          headers: {
+            "content-type": "application/json",
+            ...(bearer === null ? {} : { Authorization: `Bearer ${bearer}` }),
+          },
+        }),
+      );
+    const importing = (bearer: string | null) =>
+      bearerCall("/api/gallery/sources/analoggenie/entries", bearer, {
+        method: "POST",
+        body: JSON.stringify({
+          entries: [
+            { id: "ag-7", name: "AnalogGenie 7", projectText: projectText() },
+          ],
+        }),
+      });
+
+    const imported = await importing(token);
+    expect(imported.status).toBe(200);
+    expect(await imported.json()).toEqual({
+      source: "analoggenie",
+      results: [expect.objectContaining({ id: "ag-7", ok: true })],
+    });
+
+    expect((await importing(null)).status).toBe(401);
+    expect((await importing("acot_wrong")).status).toBe(401);
+    expect((await importing(`${token}x`)).status).toBe(401);
+    // A bad bearer is refused even beside the Owner's own session.
+    const withCookie = await route(
+      env,
+      new Request(`${ORIGIN}/api/gallery/sources/analoggenie/entries`, {
+        method: "POST",
+        headers: {
+          Origin: ORIGIN,
+          Cookie: owner,
+          Authorization: "Bearer acot_wrong",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          entries: [
+            { id: "ag-8", name: "AnalogGenie 8", projectText: projectText() },
+          ],
+        }),
+      }),
+    );
+    expect(withCookie.status).toBe(401);
+
+    // No other route takes it: not a read, not a submission.
+    expect((await bearerCall("/api/gallery/ag-7", token)).status).toBe(401);
+    expect(
+      (
+        await bearerCall("/api/gallery/submissions", token, {
+          method: "POST",
+          body: JSON.stringify({
+            name: "Through a token",
+            description: "d",
+            projectText: projectText("Through a token"),
+          }),
+        })
+      ).status,
+    ).toBe(401);
+
+    // A revoked token is refused.
+    expect((await auth(`/${id}`, { method: "DELETE" })).status).toBe(200);
+    expect((await importing(token)).status).toBe(401);
+
+    // So is one whose account is no longer the Owner.
+    const second = await mint();
+    expect((await importing(second.token)).status).toBe(200);
+    env.authSql.exec(
+      "UPDATE users SET id = 'former-owner' WHERE id = ?",
+      OWNER_ACCOUNT_IDS[1],
+    );
+    env.authSql.exec(
+      "UPDATE owner_tokens SET user_id = 'former-owner' WHERE user_id = ?",
+      OWNER_ACCOUNT_IDS[1],
+    );
+    const refused = await importing(second.token);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toEqual({ error: "owner-only" });
   });
 
   it("merges every dataset into the community wall: one order, counts that add up (#1697)", async () => {

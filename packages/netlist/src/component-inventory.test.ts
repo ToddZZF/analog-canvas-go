@@ -157,12 +157,18 @@ describe("authoring inventory agrees with real electrical extraction", () => {
         ?.instances.find((item) => item.id === "tested");
       expect(call, JSON.stringify(result.diagnostics)).toBeDefined();
       expect(call!.nodes).toEqual(
-        definition.subcircuit!.ports.map((port) => ({
-          pinName: port.name,
-          netName:
-            port.supply ??
-            `N${definition.symbol.pins.findIndex((pin) => pin.name === port.pinName)}`,
-        })),
+        definition
+          .subcircuit!.ports.filter(
+            (port) =>
+              !definition.symbol.id.startsWith("comparator-differential") ||
+              port.supply !== "VSS",
+          )
+          .map((port) => ({
+            pinName: port.name,
+            netName:
+              port.supply ??
+              `N${definition.symbol.pins.findIndex((pin) => pin.name === port.pinName)}`,
+          })),
       );
     },
   );

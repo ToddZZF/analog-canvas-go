@@ -174,7 +174,7 @@ describe("the generic diode model (#1310)", () => {
     expect(spice(fromImport).file.text).toContain(CARD);
   });
 
-  it("prints the card in SPICE only: Spectre still names DIODE alone", () => {
+  it("prints a native Spectre diode stand-in for export", () => {
     const result = createDesignNetlistExport(
       diodeProject([{ id: "d1", reference: "D1" }]),
       { format: "spectre" },
@@ -182,10 +182,15 @@ describe("the generic diode model (#1310)", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.file.text).toContain("D1 (anode cathode) DIODE");
-    expect(result.file.text).not.toMatch(/^\s*model\b/mu);
+    expect(result.file.text).toContain("model DIODE diode is=1e-14 n=1");
     expect(
       result.diagnostics.filter((item) => item.code === "GENERIC_DIODE_MODEL"),
-    ).toEqual([]);
+    ).toHaveLength(1);
+    const run = analyzeDesignNetlist(
+      diodeProject([{ id: "d1", reference: "D1" }]),
+      { format: "spectre", deckSources: [] },
+    );
+    expect(run.ir!.cells.flatMap((cell) => cell.models ?? [])).toEqual([]);
   });
 
   it("writes the same diode for VACASK", () => {

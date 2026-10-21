@@ -6,6 +6,36 @@ import { locateSpiceParameterValues } from "./syntax.js";
 const encoder = new TextEncoder();
 
 describe("SPICE statement profile", () => {
+  it.each(["PNP", "NPN", "D"])(
+    "reads the type and raw parameters of %s models independently of parentheses spacing",
+    async (type) => {
+      for (const [tail, rawParameters] of [
+        [`${type}(IS=1e-16 BF=50)`, "(IS=1e-16 BF=50)"],
+        [`${type} (IS=1e-16 BF=50)`, "(IS=1e-16 BF=50)"],
+        [`${type} IS=1e-16 BF=50`, "IS=1e-16 BF=50"],
+        [type, ""],
+      ]) {
+        const bundle = await createSourceBundle(
+          [
+            {
+              path: "model.sp",
+              bytes: encoder.encode(`* model\n.model device ${tail}\n.end\n`),
+            },
+          ],
+          "model.sp",
+        );
+        const model = bundle.syntaxFiles[0]!.statements.find(
+          (s) => s.kind === "model",
+        );
+        expect(model).toMatchObject({
+          kind: "model",
+          name: "device",
+          modelType: type,
+          rawParameters,
+        });
+      }
+    },
+  );
   it("locates .param value ranges without touching comments, duplicate name text or continuations", async () => {
     const text =
       "* 🧪\r\n.param R = 1k $ R=bad\r\n* R=comment\r\n+ SCALE = {2 * R} C='R / 3'\r\n.end\r\n";

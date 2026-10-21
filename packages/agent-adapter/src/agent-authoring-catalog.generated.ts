@@ -256,6 +256,64 @@ export const agentRazaviAuthoringCatalog = {
       variants: [],
     },
     {
+      symbolId: "comparator-differential",
+      name: "Fully Differential Comparator",
+      category: "analog-block",
+      defaultVariantId: null,
+      labelVisibility: "shown",
+      formula: false,
+      coefficient: false,
+      bounds: {
+        x: -40,
+        y: -30,
+        width: 70,
+        height: 60,
+      },
+      pins: [
+        {
+          name: "IN+",
+          role: "non-inverting-input",
+          direction: "west",
+          visibility: "visible",
+          at: {
+            x: -40,
+            y: 10,
+          },
+        },
+        {
+          name: "IN-",
+          role: "inverting-input",
+          direction: "west",
+          visibility: "visible",
+          at: {
+            x: -40,
+            y: -10,
+          },
+        },
+        {
+          name: "OUT+",
+          role: "output",
+          direction: "east",
+          visibility: "visible",
+          at: {
+            x: 30,
+            y: 10,
+          },
+        },
+        {
+          name: "OUT-",
+          role: "output",
+          direction: "east",
+          visibility: "visible",
+          at: {
+            x: 30,
+            y: -10,
+          },
+        },
+      ],
+      variants: [],
+    },
+    {
       symbolId: "current-source",
       name: "Independent Current Source",
       category: "source",

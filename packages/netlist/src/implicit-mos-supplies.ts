@@ -16,8 +16,9 @@ import {
 } from "@icm/derived";
 import {
   gateCellBinding,
-  IDEAL_COMPARATOR_SUPPLY_TARGET,
   IDEAL_COMPARATOR_TARGET,
+  idealComparatorReadsSupply,
+  isIdealComparatorBody,
   instanceBuiltInSubcircuit,
   isIdealOpampBody,
   resolveReviewedExternalBinding,
@@ -49,7 +50,11 @@ export function bodySupplies(
   format: NetlistFormat,
 ): readonly ("VDD" | "VSS")[] {
   if (projectNames.has(target.toLowerCase())) return ["VDD", "VSS"];
-  if (target === IDEAL_COMPARATOR_SUPPLY_TARGET) return ["VDD"];
+  if (
+    isIdealComparatorBody(target) &&
+    (target !== IDEAL_COMPARATOR_TARGET || format === "spice")
+  )
+    return idealComparatorReadsSupply(target) ? ["VDD"] : [];
   if (isIdealOpampBody(target)) return [];
   return idealAnalogBlockCell(target, format) !== null ||
     (format === "spice" &&
