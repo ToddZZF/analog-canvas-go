@@ -87,6 +87,12 @@ interface ProjectTabSessionsOptions {
   initialProject: CircuitProject | undefined;
   restoredWorkspace: ProjectWorkspace | null;
   workspaceError: string | null;
+  /**
+   * Whether the window may keep its tabs between visits. A host that opens
+   * exactly one drawing at a time has no tabs to keep, and never offers
+   * another window's tabs back.
+   */
+  workspaceRestore: boolean;
   setRestoringWorkspace: Dispatch<SetStateAction<boolean>>;
   preparedInitialProject: CircuitProject;
   setStatus: Dispatch<SetStateAction<string>>;
@@ -187,6 +193,7 @@ export function useProjectTabSessions({
   initialProject,
   restoredWorkspace,
   workspaceError,
+  workspaceRestore,
   setRestoringWorkspace,
   preparedInitialProject,
   setStatus,
@@ -481,6 +488,7 @@ export function useProjectTabSessions({
     final: boolean,
   ) {
     if (
+      !workspaceRestore ||
       workspaceError ||
       restoredTabs.error ||
       typeof window === "undefined" ||
@@ -704,6 +712,7 @@ export function useProjectTabSessions({
   // already says what to show.
   useEffect(() => {
     if (
+      !workspaceRestore ||
       restoredWorkspace ||
       initialProject ||
       workspaceError ||

@@ -83,4 +83,35 @@ describe("FileCommandMenu", () => {
     expect(markup).toContain('data-testid="quit-local-server"');
     expect(markup).toContain(">Quit Local Server<");
   });
+
+  it("offers no second Project to a host that owns one drawing", () => {
+    const base = {
+      canRevert: false,
+      hasRecoverySessions: false,
+      checkAndSave: { enabled: true, execute: vi.fn() },
+      projectInputRef: createRef<HTMLInputElement>(),
+      onNewProject: vi.fn(),
+      onSave: vi.fn(),
+      onImportProject: vi.fn(),
+      onImportSpice: vi.fn(),
+      onExportProject: vi.fn(),
+      onExportSvg: vi.fn(),
+      onExportRaster: vi.fn(),
+      onExportNetlist: vi.fn(),
+      onRevert: vi.fn(),
+      onOpenRecovery: vi.fn(),
+    };
+    const markup = renderToStaticMarkup(
+      <FileCommandMenu {...base} replaceDrawing={false} />,
+    );
+    // A new or an imported Project would replace the drawing the host owns,
+    // and there is no second file to put it in.
+    expect(markup).not.toContain(">New Project<");
+    expect(markup).not.toContain(">Import<");
+    expect(markup).not.toContain('data-testid="project-file"');
+    expect(markup).not.toContain('data-testid="spice-files"');
+    // What the host's own drawing needs stays.
+    expect(markup).toContain(">Save<");
+    expect(markup).toContain(">Export<");
+  });
 });

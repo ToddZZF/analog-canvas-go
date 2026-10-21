@@ -22,6 +22,14 @@ export type NativeSaveOutcome =
   | { status: "cancelled" }
   | Failure;
 export interface NativeProjectStore {
+  /**
+   * Whether the host opens one file at a time.
+   *
+   * A host that owns a single drawing — a note application, for instance —
+   * shows that drawing in the editor's one tab instead of adding a second
+   * one next to the blank circuit the editor starts with.
+   */
+  readonly singleFile?: boolean;
   nextLaunch?(): Promise<string | null>;
   open(
     recentId?: string,

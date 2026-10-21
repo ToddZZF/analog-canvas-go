@@ -6,6 +6,7 @@ import type {
 } from "@icm/derived";
 import type {
   DerivedPoint,
+  DerivedRect,
   GridRect,
   Point,
   SchematicDocument,
@@ -314,6 +315,23 @@ export function createCanvasGestureController({
     // of the drawing underneath it.
     setViewBox(fitViewCamera(bounds, grid, measureCanvasView?.() ?? null));
     if (options.announce !== false) setStatus("Fit Document");
+  };
+
+  /**
+   * Frames one region of the drawing instead of the whole scene.
+   *
+   * A note may point at a part of a schematic — `[[inv.icproj.json|#Bias]]`
+   * lands on the frame named `Bias`. The fit logic is the one a fresh open
+   * uses, so a framed region reads exactly like a fitted document, only
+   * closer in.
+   */
+  const focusView = (
+    target: DerivedRect,
+    options: { announce?: boolean } = {},
+  ): void => {
+    const grid = document.presentation.grid;
+    setViewBox(fitViewCamera(target, grid, measureCanvasView?.() ?? null));
+    if (options.announce !== false) setStatus("Focused Region");
   };
 
   const zoomViewAtCenter = (factor: number): void => {
@@ -721,6 +739,7 @@ export function createCanvasGestureController({
 
   return {
     fitView,
+    focusView,
     panView,
     zoomViewAtCenter,
     handleWheel,

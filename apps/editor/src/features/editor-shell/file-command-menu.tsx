@@ -31,6 +31,12 @@ export interface FileCommandMenuProps {
   checkAndSave: { enabled: boolean; execute: () => void };
   projectInputRef: RefObject<HTMLInputElement | null>;
   onNewProject: () => void;
+  /**
+   * Whether the editor may show a different Project than the one it was
+   * given. A host that owns one drawing has no second file to put a new or
+   * an imported Project in, so it hides both.
+   */
+  replaceDrawing?: boolean;
   onSave: () => void;
   onImportProject: (file: File | null) => void;
   onImportSpice: (
@@ -150,6 +156,7 @@ export function FileCommandMenu({
   checkAndSave,
   projectInputRef,
   onNewProject,
+  replaceDrawing = true,
   onSave,
   onImportProject,
   onImportSpice,
@@ -183,9 +190,11 @@ export function FileCommandMenu({
           Project Info
         </button>
       ) : null}
-      <button type="button" onClick={onNewProject}>
-        New Project
-      </button>
+      {replaceDrawing ? (
+        <button type="button" onClick={onNewProject}>
+          New Project
+        </button>
+      ) : null}
       <button
         type="button"
         data-testid="save-cloud-project"
@@ -210,82 +219,84 @@ export function FileCommandMenu({
           </button>
         </>
       ) : null}
-      <div>
-        <CommandSubmenu
-          id="file-import-options"
-          title="Import"
-          open={openSubmenu === "import"}
-          onToggle={() => {
-            setOpenSubmenu((current) =>
-              current === "import" ? null : "import",
-            );
-          }}
-          onClose={() => setOpenSubmenu(null)}
-        >
-          <label
-            className="file-import"
-            tabIndex={0}
-            onKeyDown={activateFileLabel}
+      {replaceDrawing ? (
+        <div>
+          <CommandSubmenu
+            id="file-import-options"
+            title="Import"
+            open={openSubmenu === "import"}
+            onToggle={() => {
+              setOpenSubmenu((current) =>
+                current === "import" ? null : "import",
+              );
+            }}
+            onClose={() => setOpenSubmenu(null)}
           >
-            Project File…
-            <input
-              ref={projectInputRef}
-              data-testid="project-file"
-              type="file"
-              accept=".json,.icproj.json,application/json"
-              onChange={(event) =>
-                onImportProject(event.currentTarget.files?.[0] ?? null)
-              }
-            />
-          </label>
-          <label
-            className="file-import"
-            tabIndex={0}
-            onKeyDown={activateFileLabel}
-          >
-            SPICE / SCS…
-            <input
-              data-testid="spice-files"
-              type="file"
-              accept=".spi,.cir,.sp,.scs,.inc,.lib"
-              multiple
-              onChange={(event) => onImportSpice(event.currentTarget.files)}
-            />
-          </label>
-          <label
-            className="file-import"
-            tabIndex={0}
-            onKeyDown={activateFileLabel}
-          >
-            Cadence SPICE (`!` globals)…
-            <input
-              data-testid="cadence-spice-files"
-              type="file"
-              accept=".spi,.cir,.sp,.scs,.inc,.lib"
-              multiple
-              onChange={(event) =>
-                onImportSpice(event.currentTarget.files, "cadence-bang")
-              }
-            />
-          </label>
-          {onImportRnl ? (
             <label
               className="file-import"
               tabIndex={0}
               onKeyDown={activateFileLabel}
             >
-              RNL…
+              Project File…
               <input
-                data-testid="rnl-files"
+                ref={projectInputRef}
+                data-testid="project-file"
                 type="file"
-                accept=".spi,.cir,.sp,.scs,.inc,.lib,.rnl"
-                multiple
-                onChange={(event) => onImportRnl(event.currentTarget.files)}
+                accept=".json,.icproj.json,application/json"
+                onChange={(event) =>
+                  onImportProject(event.currentTarget.files?.[0] ?? null)
+                }
               />
             </label>
-          ) : null}
-        </CommandSubmenu>
-      </div>
+            <label
+              className="file-import"
+              tabIndex={0}
+              onKeyDown={activateFileLabel}
+            >
+              SPICE / SCS…
+              <input
+                data-testid="spice-files"
+                type="file"
+                accept=".spi,.cir,.sp,.scs,.inc,.lib"
+                multiple
+                onChange={(event) => onImportSpice(event.currentTarget.files)}
+              />
+            </label>
+            <label
+              className="file-import"
+              tabIndex={0}
+              onKeyDown={activateFileLabel}
+            >
+              Cadence SPICE (`!` globals)…
+              <input
+                data-testid="cadence-spice-files"
+                type="file"
+                accept=".spi,.cir,.sp,.scs,.inc,.lib"
+                multiple
+                onChange={(event) =>
+                  onImportSpice(event.currentTarget.files, "cadence-bang")
+                }
+              />
+            </label>
+            {onImportRnl ? (
+              <label
+                className="file-import"
+                tabIndex={0}
+                onKeyDown={activateFileLabel}
+              >
+                RNL…
+                <input
+                  data-testid="rnl-files"
+                  type="file"
+                  accept=".spi,.cir,.sp,.scs,.inc,.lib,.rnl"
+                  multiple
+                  onChange={(event) => onImportRnl(event.currentTarget.files)}
+                />
+              </label>
+            ) : null}
+          </CommandSubmenu>
+        </div>
+      ) : null}
       <div>
         <CommandSubmenu
           id="file-export-options"

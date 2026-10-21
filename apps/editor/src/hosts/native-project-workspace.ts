@@ -36,11 +36,12 @@ export async function openNativeFile(
     select(id: string): Promise<boolean>;
     open(
       file: File,
-      options: { inTab: true; nativeBinding: NativeFileBinding },
+      options: { inTab: boolean; nativeBinding: NativeFileBinding },
     ): Promise<boolean>;
     report(message: string): void;
   },
   recentId?: string,
+  inTab = true,
 ) {
   const outcome = await store.open(recentId);
   if (outcome.status === "opened") {
@@ -54,7 +55,7 @@ export async function openNativeFile(
       let applied = false;
       try {
         applied = await tabs.open(new File([outcome.text], outcome.file.name), {
-          inTab: true,
+          inTab,
           nativeBinding: outcome.file,
         });
       } finally {

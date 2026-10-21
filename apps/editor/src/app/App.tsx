@@ -77,6 +77,7 @@ import {
 import type {
   CircuitProject,
   DerivedPoint,
+  DerivedRect,
   GridRect,
   Point,
   Rotation,
@@ -485,6 +486,11 @@ export function App(props: AppProps) {
     let mounted = true;
     void Promise.resolve()
       .then(() => {
+        // A host that opens exactly one drawing has no tabs to bring back,
+        // and it never wants another frame's drawing offered back to it.
+        if (entryProps.services.capabilities.workspaceRestore === false) {
+          return null;
+        }
         const windowId = workspaceWindowId();
         // Marks this window open, so a fresh window never offers its tabs.
         holdWorkspaceWindow(windowId);
@@ -502,6 +508,11 @@ export function App(props: AppProps) {
         );
       })
       .then(async (read) => {
+        if (!mounted) return;
+        if (read === null) {
+          setBoot({ workspace: null });
+          return;
+        }
         if (entryProps.services.restoreWorkspace && !read.error)
           read = {
             ...read,
@@ -1212,6 +1223,10 @@ function WorkspaceEditor({
       isCloudManagementInFlight()
         ? "Cloud Project management is in progress"
         : null,
+    // A host that owns the file decides when the drawing is written.
+    ...(capabilities.hostPersistence
+      ? { hostPersistence: capabilities.hostPersistence }
+      : {}),
     project,
     projectSessionId,
     viewBox,
@@ -3484,6 +3499,7 @@ function WorkspaceEditor({
   });
   const {
     fitView,
+    focusView,
     panView,
     zoomViewAtCenter,
     handleWheel,
@@ -3597,6 +3613,42 @@ function WorkspaceEditor({
   }, [projectSessionId]);
   const autoFitBounds = contentSceneBounds;
   const autoFitHasContent = authoredObjectCount(project) > 0;
+  /**
+   * A note may point at a region of the drawing rather than at the whole
+   * sheet. The host asks for that region before the Project is open, so the
+   * request is held here until the scene exists and then spends itself on
+   * the first landing.
+   */
+  const pendingFocusRef = useRef<DerivedRect | null>(null);
+  const focusViewRef = useRef(focusView);
+  focusViewRef.current = focusView;
+  useEffect(() => {
+    const host = window as unknown as Record<string, unknown>;
+    const focusRegion = (bounds: DerivedRect): void => {
+      pendingFocusRef.current = bounds;
+      focusViewRef.current(bounds, { announce: false });
+    };
+    host.__analogCanvasFocusRegion = focusRegion;
+    return () => {
+      if (host.__analogCanvasFocusRegion === focusRegion)
+        delete host.__analogCanvasFocusRegion;
+    };
+  }, []);
+  /**
+   * The host asks for the drawing to be written, the way a person presses
+   * Save. The drawing is the host's file, so the host's own command reaches
+   * the editor here.
+   */
+  const saveByHandRef = useRef(saveByHand);
+  saveByHandRef.current = saveByHand;
+  useEffect(() => {
+    const host = window as unknown as Record<string, unknown>;
+    const save = (): Promise<unknown> => saveByHandRef.current();
+    host.__analogCanvasSave = save;
+    return () => {
+      if (host.__analogCanvasSave === save) delete host.__analogCanvasSave;
+    };
+  }, []);
   useEffect(() => {
     if (!pendingAutoFitRef.current || !autoFitBounds) return;
     // One decision per open, taken the moment the scene bounds exist: a
@@ -3605,6 +3657,14 @@ function WorkspaceEditor({
     // first authored edit never yanks the camera afterwards.
     pendingAutoFitRef.current = false;
     if (!autoFitHasContent) return;
+    // A framed region replaces the fit: the note asked for that part of the
+    // drawing, not for the whole sheet.
+    const focus = pendingFocusRef.current;
+    if (focus) {
+      pendingFocusRef.current = null;
+      focusViewRef.current(focus, { announce: false });
+      return;
+    }
     // Silent: the open's own status ("Opened …", "Restored …") must
     // survive the landing fit.
     fitView({ announce: false });
@@ -4755,6 +4815,7 @@ function WorkspaceEditor({
     initialProject,
     restoredWorkspace,
     workspaceError,
+    workspaceRestore: capabilities.workspaceRestore !== false,
     setRestoringWorkspace,
     preparedInitialProject,
     setStatus,

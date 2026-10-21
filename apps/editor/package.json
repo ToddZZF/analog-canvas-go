@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:zettlr": "vite build --config vite.zettlr.config.ts",
     "dev": "vite"
   },
   "dependencies": {

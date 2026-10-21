@@ -439,6 +439,8 @@ export function EditorMenuBar({
         },
         projectInputRef,
         onNewProject: createNewProject,
+        // A host that owns one drawing cannot take a second one.
+        replaceDrawing: capabilities.replaceDrawing !== false,
         onSave: () => void saveByHand(),
         onImportProject: (file) => void openProjectFile(file),
         onImportSpice: (files, namingProfile) =>

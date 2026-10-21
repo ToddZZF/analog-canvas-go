@@ -4,6 +4,12 @@
   display: grid;
   grid-template-columns: var(--icm-shapes-width) minmax(0, 1fr) auto auto;
   grid-template-areas: "shapes canvas props simulation";
+  /* The single row is the workspace's height, not its content's. An auto row
+     would size itself to the canvas, which sizes itself to the drawing, and
+     the drawing would then be scaled to a canvas taller than the window —
+     the canvas must fill the frame it is given, and its content must be
+     scaled into that frame. */
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   overflow: hidden;

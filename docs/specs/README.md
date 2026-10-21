@@ -31,6 +31,7 @@ on. Each topic has one owner spec; others link to it.
 | [`editor-interaction.md`](editor-interaction.md)                   | Gestures, selection, previews, controls (sole owner)                   |
 | [`community-gallery.md`](community-gallery.md)                     | Gallery feed, accounts, moderation                                     |
 | [`analog-arena.md`](analog-arena.md)                               | Contract with the AnalogArena Worker (cross-repo)                      |
+| [`note-host.md`](note-host.md)                                     | Contract with the note application (cross-repo)                        |
 
 ## Writing a spec
 

@@ -6,7 +6,9 @@ import type {
   NativeProjectStore,
   NativeSaveOutcome,
 } from "../hosts/native-project-store";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import type { HostPersistence } from "./host-persistence";
 
 import { createEmptyProject, createId } from "@icm/model";
 import type { CircuitProject, GridRect, SchematicDocument } from "@icm/model";
@@ -54,6 +56,10 @@ import {
 import { CLOUD_PROJECT_COPY } from "./cloud-project-copy";
 
 export const REFRESH_RESTORE_STORAGE_KEY = "icm.restore-after-refresh.v1";
+
+/** Milliseconds a drawing waits before the host writes it, per the host's wish. */
+const IMMEDIATE_SAVE_TIMEOUT = 500;
+const DELAYED_SAVE_TIMEOUT = 5000;
 
 export interface ProjectFileSession {
   nativeBinding?: NativeFileBinding | null;
@@ -152,6 +158,8 @@ export interface UseProjectFileLifecycleOptions {
     to: string,
     projectId: string,
   ): string | undefined;
+  /** A host that owns the file writes the drawing itself; see HostPersistence. */
+  hostPersistence?: HostPersistence;
 }
 
 export function useProjectFileLifecycle({
@@ -177,6 +185,7 @@ export function useProjectFileLifecycle({
   onRecoverBuffers,
   describeOpenBlocker,
   describeCloudSaveBlocker,
+  hostPersistence,
 }: UseProjectFileLifecycleOptions) {
   // Read-only initializer: consuming the one-shot flag here would be a render
   // side effect, and a discarded render (StrictMode's double pass, a Suspense
@@ -221,8 +230,31 @@ export function useProjectFileLifecycle({
   const safeSnapshotTokenRef = useRef<string | null>(null);
   /** Change token of the last snapshot published; see hasUnsavedChanges. */
   const publishedSnapshotTokenRef = useRef<string | null>(null);
-  const [persistenceState, setPersistenceState] =
+  const [persistenceState, setPersistenceStateRaw] =
     useState<PersistenceState>("unbound");
+  /**
+   * The host that owns the file. A ref keeps a host that arrives late — a
+   * note application that hands over its preferences after the editor
+   * mounted — in the loop.
+   */
+  const hostPersistenceRef = useRef<HostPersistence | undefined>(
+    hostPersistence,
+  );
+  hostPersistenceRef.current = hostPersistence;
+  /**
+   * Every change of the persistence state is reported once: the host shows
+   * that the drawing wants to be saved.
+   */
+  const setPersistenceState = useCallback((state: PersistenceState): void => {
+    setPersistenceStateRaw(state);
+    hostPersistenceRef.current?.onDirtyChange(
+      state === "dirty" ||
+        state === "saving" ||
+        state === "offline" ||
+        state === "conflict" ||
+        state === "failed",
+    );
+  }, []);
   const [cloudBinding, setCloudBinding] = useState<CloudProjectBinding | null>(
     null,
   );
@@ -558,6 +590,50 @@ export function useProjectFileLifecycle({
       },
     });
   }
+
+  /**
+   * The pending host save, if any.
+   *
+   * The drawing is written once it settles, so a burst of edits costs one
+   * write.
+   */
+  const hostSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Lets the host write the drawing after the last edit.
+   *
+   * The host owns the file, so it decides how eagerly the drawing is
+   * written; the editor only says when the drawing changed. A host that
+   * wants nothing of this keeps the editor's own save.
+   */
+  function scheduleHostSave(): void {
+    const host = hostPersistenceRef.current;
+    if (!host) return;
+    const mode = host.autoSave();
+    if (mode === "off") return;
+    if (hostSaveTimerRef.current !== null) {
+      clearTimeout(hostSaveTimerRef.current);
+    }
+    hostSaveTimerRef.current = setTimeout(
+      () => {
+        hostSaveTimerRef.current = null;
+        void saveProjectToNative();
+      },
+      mode === "delayed" ? DELAYED_SAVE_TIMEOUT : IMMEDIATE_SAVE_TIMEOUT,
+    );
+  }
+
+  // A drawing that is still waiting for its save must not write after the
+  // editor is gone.
+  useEffect(
+    () => () => {
+      if (hostSaveTimerRef.current !== null) {
+        clearTimeout(hostSaveTimerRef.current);
+        hostSaveTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   async function exportProjectFile(): Promise<void> {
     const exportSessionId = liveSessionRef.current;
@@ -1120,6 +1196,9 @@ export function useProjectFileLifecycle({
         projectChangeToken(savedProjectBaseline.project) ===
           currentProjectChangeToken;
       setPersistenceState(matchesSavedProject ? "clean" : "dirty");
+      // The drawing no longer matches what is on disk: the host may want to
+      // write it now.
+      if (!matchesSavedProject) scheduleHostSave();
     }
   }, [currentProjectChangeToken, projectSessionId, savedProjectBaseline]);
 

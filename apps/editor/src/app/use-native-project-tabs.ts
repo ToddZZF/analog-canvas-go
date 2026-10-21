@@ -84,6 +84,8 @@ export function useNativeProjectTabs({
           report: setStatus,
         },
         recentId,
+        // A host that owns one drawing shows it in the editor's one tab.
+        nativeProjectStore.singleFile !== true,
       );
       await refreshNativeFiles();
     } finally {
