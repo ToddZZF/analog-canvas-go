@@ -1,6 +1,6 @@
 # Local Go server contract
 
-Status: `adopted`
+Status: `accepted`
 
 Primary owner: `apps/local-server`
 
