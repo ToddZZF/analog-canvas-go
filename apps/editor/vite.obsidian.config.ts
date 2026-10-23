@@ -10,7 +10,7 @@ import { lockedCanvasPackage } from "./build/rnl-canvas-package";
  *
  * Two frames come out of it:
  *
- *   * `zettlr.html` — the editor, for opening and editing a drawing inside
+ *   * `obsidian.html` — the editor, for opening and editing a drawing inside
  *     a note,
  *   * `render.html` — the figure, for showing a drawing inside a note.
  *
@@ -47,10 +47,10 @@ export default defineConfig({
     },
   ],
   build: {
-    outDir: "dist-zettlr",
+    outDir: "dist-obsidian",
     rollupOptions: {
       input: {
-        zettlr: resolve(import.meta.dirname, "zettlr.html"),
+        obsidian: resolve(import.meta.dirname, "obsidian.html"),
         render: resolve(import.meta.dirname, "render.html"),
       },
     },

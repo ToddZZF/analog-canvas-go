@@ -9,12 +9,12 @@
  * Every message carries the channel name, so a frame that hosts something
  * else entirely cannot be mistaken for this one.
  */
-export const ZETTLR_CHANNEL = "analog-canvas";
+export const OBSIDIAN_CHANNEL = "analog-canvas";
 
 /** How eagerly the note application writes the drawing. */
-export type ZettlrAutoSaveMode = "off" | "immediately" | "delayed";
+export type ObsidianAutoSaveMode = "off" | "immediately" | "delayed";
 
-export interface ZettlrOpenFile {
+export interface ObsidianOpenFile {
   /** Absolute path of the `.icproj.json` file. */
   readonly path: string;
   /** The Project file's text. */
@@ -26,14 +26,14 @@ export interface ZettlrOpenFile {
 /** What the note application tells the editor. */
 export type NoteAppMessage =
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "open";
       path: string;
       text: string;
       focus?: string;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "render";
       requestId: string;
       path: string;
@@ -41,27 +41,27 @@ export type NoteAppMessage =
       focus?: string;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "focus";
       region: string;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "preferences";
-      autoSave: ZettlrAutoSaveMode;
+      autoSave: ObsidianAutoSaveMode;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "save-request";
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "saved";
       requestId: string;
       path: string;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "save-failed";
       requestId: string;
       message: string;
@@ -69,21 +69,21 @@ export type NoteAppMessage =
 
 /** What the editor tells the note application. */
 export type EditorMessage =
-  | { channel: typeof ZETTLR_CHANNEL; type: "ready" }
+  | { channel: typeof OBSIDIAN_CHANNEL; type: "ready" }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "dirty";
       dirty: boolean;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "save";
       requestId: string;
       path: string;
       text: string;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "rendered";
       requestId: string;
       path: string;
@@ -92,7 +92,7 @@ export type EditorMessage =
       height: number;
     }
   | {
-      channel: typeof ZETTLR_CHANNEL;
+      channel: typeof OBSIDIAN_CHANNEL;
       type: "error";
       requestId?: string;
       message: string;
@@ -111,7 +111,7 @@ const NOTE_APP_TYPES = new Set([
 function isNoteAppMessage(value: unknown): value is NoteAppMessage {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<NoteAppMessage>;
-  if (candidate.channel !== ZETTLR_CHANNEL) return false;
+  if (candidate.channel !== OBSIDIAN_CHANNEL) return false;
   return (
     typeof candidate.type === "string" && NOTE_APP_TYPES.has(candidate.type)
   );

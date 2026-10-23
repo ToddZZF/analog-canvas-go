@@ -2,12 +2,12 @@
 
 Status: `accepted`
 
-Primary owner: `apps/editor/src/hosts/zettlr-bridge.ts` (protocol),
-`apps/editor/src/entries/zettlr.tsx` (editor frame),
+Primary owner: `apps/editor/src/hosts/obsidian-bridge.ts` (protocol),
+`apps/editor/src/entries/obsidian.tsx` (editor frame),
 `apps/editor/src/entries/render.tsx` (figure frame),
 `apps/editor/src/features/circuit-region/region-target.ts` (named regions)
 
-The circuit editor runs inside a note application — Zettlr, in the repository that
+The circuit editor runs inside a note application — Obsidian, in the repository that
 owns it. The note application owns the file: it hands over the Project's text and
 writes back the text the editor returns. This spec owns the contract between the
 two sides and the bundle that carries them. The Project file itself stays with
@@ -17,8 +17,8 @@ two sides and the bundle that carries them. The Project file itself stays with
 
 ## Rules
 
-- One build produces both frames: `zettlr.html` (the editor) and `render.html`
-  (the figure). `pnpm build:zettlr` writes both into `dist-zettlr`.
+- One build produces both frames: `obsidian.html` (the editor) and `render.html`
+  (the figure). `pnpm build:obsidian` writes both into `dist-obsidian`.
 - The note bundle carries the same global stylesheet as the desktop bundle. The
   height chain `body` → `#root` → `.app-shell` → `.app-workspace` →
   `.canvas-panel` is what gives the canvas a definite size.
@@ -106,4 +106,4 @@ A `save`, `render` and `rendered` exchange is bound by its `requestId`.
 - A note frame offers no second Project, and an unbound drawing is never
   written —
   [`file-command-menu.test.tsx`](../../apps/editor/src/features/editor-shell/file-command-menu.test.tsx),
-  [`zettlr-project-store.test.ts`](../../apps/editor/src/hosts/zettlr-project-store.test.ts).
+  [`obsidian-project-store.test.ts`](../../apps/editor/src/hosts/obsidian-project-store.test.ts).

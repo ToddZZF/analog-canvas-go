@@ -12,15 +12,15 @@ import { builtInSymbols, createProjectSymbolResolver } from "@icm/symbols";
 
 import { App } from "../app/App";
 import { EditorErrorBoundary } from "../components/editor-error-boundary";
-import { createZettlrEditorServices } from "../services/zettlr-editor-services";
-import { createZettlrProjectStore } from "../hosts/zettlr-project-store";
-import type { ZettlrProjectStore } from "../hosts/zettlr-project-store";
+import { createObsidianEditorServices } from "../services/obsidian-editor-services";
+import { createObsidianProjectStore } from "../hosts/obsidian-project-store";
+import type { ObsidianProjectStore } from "../hosts/obsidian-project-store";
 import {
   onHostMessage,
   postToHost,
-  type ZettlrAutoSaveMode,
-  type ZettlrOpenFile,
-} from "../hosts/zettlr-bridge";
+  type ObsidianAutoSaveMode,
+  type ObsidianOpenFile,
+} from "../hosts/obsidian-bridge";
 import { resolveCircuitRegion } from "../features/circuit-region/region-target";
 import type { HostPersistence } from "../document/host-persistence";
 // The global sheet carries the design tokens and the shell's height chain
@@ -33,15 +33,15 @@ const root = document.getElementById("root");
 if (!root) throw new Error("Editor root element is missing");
 
 /** The Project the note application handed over. */
-let handOver: (file: ZettlrOpenFile) => void = () => {};
-const opened = new Promise<ZettlrOpenFile>((resolve) => {
+let handOver: (file: ObsidianOpenFile) => void = () => {};
+const opened = new Promise<ObsidianOpenFile>((resolve) => {
   handOver = resolve;
 });
 
 /** The region a link pointed at, once the Project is known. */
 let pendingFocus: string | undefined;
 /** The drawing that is currently open, so a later region can be resolved. */
-let currentFile: ZettlrOpenFile | undefined;
+let currentFile: ObsidianOpenFile | undefined;
 /** The retry timer of a region that arrived before the canvas was ready. */
 let focusRetry: ReturnType<typeof setTimeout> | undefined;
 /** How often a region may wait for the canvas before it is given up on. */
@@ -50,12 +50,12 @@ const FOCUS_RETRY_LIMIT = 100;
 let focusRetries = 0;
 
 /** How eagerly the note application writes the drawing. */
-let autoSaveMode: ZettlrAutoSaveMode = "off";
+let autoSaveMode: ObsidianAutoSaveMode = "off";
 
 onHostMessage((message) => {
   if (message.type === "open" || message.type === "render") {
     pendingFocus = message.focus;
-    const file: ZettlrOpenFile = {
+    const file: ObsidianOpenFile = {
       path: message.path,
       text: message.text,
       ...(message.focus ? { focus: message.focus } : {}),
@@ -187,7 +187,7 @@ function resolveRegionBounds(name: string): {
 }
 
 /** Writes the Project back through the note application. */
-function writeThroughHost(file: ZettlrOpenFile, text: string): Promise<void> {
+function writeThroughHost(file: ObsidianOpenFile, text: string): Promise<void> {
   const requestId = `save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return new Promise<void>((resolve, reject) => {
     const stop = onHostMessage((message) => {
@@ -211,12 +211,12 @@ function writeThroughHost(file: ZettlrOpenFile, text: string): Promise<void> {
   });
 }
 
-const baseStore = createZettlrProjectStore({
+const baseStore = createObsidianProjectStore({
   file: opened,
   write: (file, text) => writeThroughHost(file, text),
 });
 
-const store: ZettlrProjectStore = {
+const store: ObsidianProjectStore = {
   ...baseStore,
   async open(recentId) {
     const outcome = await baseStore.open(recentId);
@@ -244,7 +244,7 @@ const hostPersistence: HostPersistence = {
 createRoot(root).render(
   <StrictMode>
     <EditorErrorBoundary>
-      <App services={createZettlrEditorServices(store, hostPersistence)} />
+      <App services={createObsidianEditorServices(store, hostPersistence)} />
     </EditorErrorBoundary>
   </StrictMode>,
 );

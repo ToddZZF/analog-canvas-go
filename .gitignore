@@ -47,7 +47,7 @@ apps/editor/dist-desktop/
 apps/editor/dist-e2e/
 
 # The note application's bundle of this editor.
-apps/editor/dist-zettlr/
+apps/editor/dist-obsidian/
 
 # Go local server: embedded editor bundle (build output).
 apps/local-server/web/*

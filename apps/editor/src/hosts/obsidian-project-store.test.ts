@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEmptyProject, createId } from "@icm/model";
 
-import { createZettlrProjectStore } from "./zettlr-project-store";
-import type { ZettlrOpenFile } from "./zettlr-bridge";
+import { createObsidianProjectStore } from "./obsidian-project-store";
+import type { ObsidianOpenFile } from "./obsidian-bridge";
 
-const handedOver: ZettlrOpenFile = {
+const handedOver: ObsidianOpenFile = {
   path: "/notes/inv.icproj.json",
   text: "{}",
 };
 
 const binding = {
-  id: "zettlr-project",
+  id: "obsidian-project",
   revision: 1,
   name: "inv.icproj.json",
   path: "/notes/inv.icproj.json",
@@ -22,7 +22,7 @@ const project = () =>
 describe("the note application's Project store", () => {
   it("writes the drawing the note application handed over", async () => {
     const write = vi.fn(async () => {});
-    const store = createZettlrProjectStore({
+    const store = createObsidianProjectStore({
       file: Promise.resolve(handedOver),
       write,
     });
@@ -35,7 +35,7 @@ describe("the note application's Project store", () => {
 
   it("refuses to write a drawing that is bound to no file", async () => {
     const write = vi.fn(async () => {});
-    const store = createZettlrProjectStore({
+    const store = createObsidianProjectStore({
       file: Promise.resolve(handedOver),
       write,
     });

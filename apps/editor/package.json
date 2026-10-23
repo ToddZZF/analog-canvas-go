@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "build:zettlr": "vite build --config vite.zettlr.config.ts",
+    "build:obsidian": "vite build --config vite.obsidian.config.ts",
     "dev": "vite"
   },
   "dependencies": {

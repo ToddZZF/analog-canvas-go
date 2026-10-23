@@ -2,7 +2,7 @@ import type { EditorServices } from "./editor-services";
 import { browserExportDelivery } from "../hosts/browser-export-delivery";
 import { writeClipboardText } from "../hosts/clipboard-text";
 import type { HostPersistence } from "../document/host-persistence";
-import type { ZettlrProjectStore } from "../hosts/zettlr-project-store";
+import type { ObsidianProjectStore } from "../hosts/obsidian-project-store";
 
 /**
  * The editor composition for a note application.
@@ -12,8 +12,8 @@ import type { ZettlrProjectStore } from "../hosts/zettlr-project-store";
  * gallery, the agent, the simulator — is left out. What remains is the
  * canvas, the parts library and the property inspector.
  */
-export function createZettlrEditorServices(
-  nativeProjectStore: ZettlrProjectStore,
+export function createObsidianEditorServices(
+  nativeProjectStore: ObsidianProjectStore,
   hostPersistence: HostPersistence,
 ): EditorServices {
   return {

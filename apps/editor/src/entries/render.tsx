@@ -13,7 +13,7 @@ import { parseProject } from "@icm/project-protocol";
 import { renderDocumentSvg } from "@icm/render-svg";
 import { builtInSymbols, createProjectSymbolResolver } from "@icm/symbols";
 
-import { onHostMessage, postToHost } from "../hosts/zettlr-bridge";
+import { onHostMessage, postToHost } from "../hosts/obsidian-bridge";
 import { resolveCircuitRegion } from "../features/circuit-region/region-target";
 
 onHostMessage((message) => {

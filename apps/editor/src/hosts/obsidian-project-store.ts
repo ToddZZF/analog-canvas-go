@@ -15,27 +15,27 @@ import type {
   NativeProjectStore,
   NativeSaveOutcome,
 } from "./native-project-store";
-import type { ZettlrOpenFile } from "./zettlr-bridge";
+import type { ObsidianOpenFile } from "./obsidian-bridge";
 
 /** The one Project a note frame owns at a time. */
-const PROJECT_FILE_ID = "zettlr-project";
+const PROJECT_FILE_ID = "obsidian-project";
 
-export interface ZettlrProjectStore extends NativeProjectStore {
+export interface ObsidianProjectStore extends NativeProjectStore {
   /**
    * The Project the note application asked to open. Resolves once the note
    * application has handed over its text.
    */
-  readonly file: Promise<ZettlrOpenFile>;
+  readonly file: Promise<ObsidianOpenFile>;
 }
 
-export interface ZettlrProjectStoreOptions {
+export interface ObsidianProjectStoreOptions {
   /** The Project the note application handed over. */
-  readonly file: Promise<ZettlrOpenFile>;
+  readonly file: Promise<ObsidianOpenFile>;
   /** Persists the Project text; resolves when the note application wrote it. */
-  readonly write: (file: ZettlrOpenFile, text: string) => Promise<void>;
+  readonly write: (file: ObsidianOpenFile, text: string) => Promise<void>;
 }
 
-function bindingFor(file: ZettlrOpenFile): NativeFileBinding {
+function bindingFor(file: ObsidianOpenFile): NativeFileBinding {
   const name = file.path.split(/[\\/]/u).pop() ?? file.path;
   return {
     id: PROJECT_FILE_ID,
@@ -45,9 +45,9 @@ function bindingFor(file: ZettlrOpenFile): NativeFileBinding {
   };
 }
 
-export function createZettlrProjectStore(
-  options: ZettlrProjectStoreOptions,
-): ZettlrProjectStore {
+export function createObsidianProjectStore(
+  options: ObsidianProjectStoreOptions,
+): ObsidianProjectStore {
   let launched = false;
   return {
     file: options.file,
