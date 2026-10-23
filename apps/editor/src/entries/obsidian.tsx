@@ -32,12 +32,6 @@ import "../styles.css";
 const root = document.getElementById("root");
 if (!root) throw new Error("Editor root element is missing");
 
-/** The Project the note application handed over. */
-let handOver: (file: ObsidianOpenFile) => void = () => {};
-const opened = new Promise<ObsidianOpenFile>((resolve) => {
-  handOver = resolve;
-});
-
 /** The region a link pointed at, once the Project is known. */
 let pendingFocus: string | undefined;
 /** The drawing that is currently open, so a later region can be resolved. */
@@ -61,7 +55,13 @@ onHostMessage((message) => {
       ...(message.focus ? { focus: message.focus } : {}),
     };
     currentFile = file;
-    handOver(file);
+    // The workspace learns of the hand-over here. A pane that shows another
+    // drawing hands its own over again, and the frame owes its one launch
+    // to the drawing that was named last.
+    const host = window as unknown as {
+      __analogCanvasDesktop?: { openPending?: () => Promise<void> };
+    };
+    void host.__analogCanvasDesktop?.openPending?.();
     return;
   }
   if (message.type === "focus") {
@@ -187,13 +187,18 @@ function resolveRegionBounds(name: string): {
 }
 
 /** Writes the Project back through the note application. */
-function writeThroughHost(file: ObsidianOpenFile, text: string): Promise<void> {
+function writeThroughHost(
+  file: ObsidianOpenFile,
+  text: string,
+): Promise<ObsidianOpenFile> {
   const requestId = `save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<ObsidianOpenFile>((resolve, reject) => {
     const stop = onHostMessage((message) => {
       if (message.type === "saved" && message.requestId === requestId) {
         stop();
-        resolve();
+        // The note application answers with the file it wrote. A drawing
+        // that was renamed while it was open comes back under its new name.
+        resolve({ ...file, path: message.path });
         return;
       }
       if (message.type === "save-failed" && message.requestId === requestId) {
@@ -212,7 +217,7 @@ function writeThroughHost(file: ObsidianOpenFile, text: string): Promise<void> {
 }
 
 const baseStore = createObsidianProjectStore({
-  file: opened,
+  file: () => currentFile,
   write: (file, text) => writeThroughHost(file, text),
 });
 

@@ -45,11 +45,19 @@ export async function openNativeFile(
 ) {
   const outcome = await store.open(recentId);
   if (outcome.status === "opened") {
-    const existing = tabs
-      .entries()
-      .find(
-        (entry) => entry.session.file.nativeBinding?.id === outcome.file.id,
-      );
+    // A host that owns one drawing hands it over again whenever its pane
+    // shows another drawing. The hand-over is always the drawing to show,
+    // never a second look at a session that carries the same name — that
+    // name may have been freed by a rename and given to another drawing.
+    const existing =
+      store.singleFile === true
+        ? undefined
+        : tabs
+            .entries()
+            .find(
+              (entry) =>
+                entry.session.file.nativeBinding?.id === outcome.file.id,
+            );
     if (existing) await tabs.select(existing.id);
     else {
       let applied = false;
